@@ -1,4 +1,4 @@
-import { Vector3 } from 'three'
+import { Quaternion, Vector3 } from 'three'
 
 /** Appends the two triangles making up a quad (a,b,c,d in order) to the output list. */
 export function pushQuad(
@@ -33,4 +33,49 @@ export function boxTriangles(min: Vector3, max: Vector3): Vector3[] {
   pushQuad(out, v(max.x, min.y, min.z), v(max.x, max.y, min.z), v(max.x, max.y, max.z), v(max.x, min.y, max.z))
 
   return out
+}
+
+/**
+ * Builds a triangular prism (wedge): a triangular cross-section (in the X/Y
+ * plane, given as three points) extruded along Z from `zMin` to `zMax`.
+ * Unlike a box, none of its faces are parallel to another, so no single
+ * axis-aligned rotation can land more than one face flat — useful for
+ * building test meshes whose optimal orientation is genuinely oblique.
+ */
+export function wedgeTriangles(
+  crossSection: readonly [Vector3, Vector3, Vector3],
+  zMin: number,
+  zMax: number,
+): Vector3[] {
+  const [p0, p1, p2] = crossSection
+  const front = (p: Vector3) => new Vector3(p.x, p.y, zMin)
+  const back = (p: Vector3) => new Vector3(p.x, p.y, zMax)
+  const out: Vector3[] = []
+
+  // Front and back triangular caps (wound outward).
+  out.push(front(p0), front(p2), front(p1))
+  out.push(back(p0), back(p1), back(p2))
+
+  // Three rectangular side faces, one per edge of the cross-section.
+  pushQuad(out, front(p0), front(p1), back(p1), back(p0))
+  pushQuad(out, front(p1), front(p2), back(p2), back(p1))
+  pushQuad(out, front(p2), front(p0), back(p0), back(p2))
+
+  return out
+}
+
+/**
+ * Rotates a list of vertices about `axis` by `angleDeg`, then translates by
+ * `pivot` (rotate first, then move to position). Useful for building mesh
+ * features that jut out at a deliberately non-axis-aligned angle, so the
+ * optimizer's best orientation isn't trivially one of the seeded directions.
+ */
+export function rotateAndTranslate(
+  vertices: readonly Vector3[],
+  axis: Vector3,
+  angleDeg: number,
+  pivot: Vector3,
+): Vector3[] {
+  const q = new Quaternion().setFromAxisAngle(axis.clone().normalize(), (angleDeg * Math.PI) / 180)
+  return vertices.map((v) => v.clone().applyQuaternion(q).add(pivot))
 }

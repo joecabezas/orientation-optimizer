@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { createEngine } from './createEngine'
 import { EA_PRESETS } from './EAConfig'
-import { makeLBracketMesh } from '../meshes/testMeshes'
+import { makeLBracketMesh, makeTiltedSlabMesh, makeAngledWedgeMesh } from '../meshes/testMeshes'
 
 describe('createEngine', () => {
   it('defaults to the projected-area (critical-angle-free) fitness strategy', () => {
@@ -31,4 +31,27 @@ describe('createEngine', () => {
     const result = engine.start()
     expect(result.best.score).toBeGreaterThanOrEqual(0)
   })
+
+  it.each([
+    ['tilted-slab', makeTiltedSlabMesh],
+    ['angled-wedge', makeAngledWedgeMesh],
+  ])(
+    '%s: generation-0 seeding does not already find the optimum, so the EA has real work to do',
+    (_name, build) => {
+      const mesh = build()
+      const config = { ...EA_PRESETS.best, maxGenerations: 60 }
+      const engine = createEngine(mesh, config)
+
+      const first = engine.start()
+      let last = first
+      for (let i = 0; i < config.maxGenerations; i++) {
+        last = engine.step()
+      }
+
+      // These meshes are built with a baked-in oblique tilt and no untilted
+      // anchor component, so the axis-aligned seeding candidates should not
+      // already be optimal — later generations must measurably improve on them.
+      expect(last.best.score).toBeLessThan(first.best.score * 0.9)
+    },
+  )
 })

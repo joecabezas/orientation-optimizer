@@ -15,6 +15,7 @@ export default function App() {
   const [isRunning, setIsRunning] = useState(false)
   const [result, setResult] = useState<GenerationResult | null>(null)
   const [history, setHistory] = useState<FitnessHistoryPoint[]>([])
+  const [selectedGenomeId, setSelectedGenomeId] = useState<string | undefined>(undefined)
 
   const mesh = useMemo(() => {
     const option = TEST_MESHES.find((m) => m.id === selectedMeshId) ?? TEST_MESHES[0]
@@ -35,6 +36,7 @@ export default function App() {
     const first = engine.start()
     setResult(first)
     setHistory([{ generation: first.generation, bestScore: first.best.score, averageScore: first.averageScore }])
+    setSelectedGenomeId(undefined)
   }
 
   // Rebuild the engine whenever the mesh or structural config changes.
@@ -86,6 +88,13 @@ export default function App() {
 
   const handleMeshChange = (id: string) => setSelectedMeshId(id)
 
+  const handleSelectGenome = (genomeId: string) => {
+    setSelectedGenomeId((prev) => (prev === genomeId ? undefined : genomeId))
+  }
+
+  const displayedIndividual =
+    (selectedGenomeId && result?.population.find((ind) => ind.genome.id === selectedGenomeId)) || result?.best
+
   return (
     <div className="app-root">
       <header className="app-header">
@@ -119,18 +128,34 @@ export default function App() {
                 Generation <strong>{result?.generation ?? 0}</strong> / {config.maxGenerations}
               </span>
               <span>
-                Best score <strong>{result?.best.score.toFixed(4) ?? '-'}</strong>
+                {selectedGenomeId ? 'Selected score' : 'Best score'}{' '}
+                <strong>{displayedIndividual?.score.toFixed(4) ?? '-'}</strong>
               </span>
               {engineRef.current?.isDone && <span className="badge-done">Done</span>}
+              {selectedGenomeId && (
+                <button className="secondary-btn" onClick={() => setSelectedGenomeId(undefined)}>
+                  Follow best
+                </button>
+              )}
             </div>
-            {result && (
-              <ModelViewer mesh={mesh} rotation={result.best.genome.rotation} tweenDurationMs={config.tweenDurationMs} />
+            {displayedIndividual && (
+              <ModelViewer
+                mesh={mesh}
+                rotation={displayedIndividual.genome.rotation}
+                tweenDurationMs={config.tweenDurationMs}
+              />
             )}
           </div>
 
           <FitnessChart history={history} />
 
-          {result && <GenomeTable population={result.population} selectedGenomeId={result.best.genome.id} />}
+          {result && (
+            <GenomeTable
+              population={result.population}
+              selectedGenomeId={selectedGenomeId ?? result.best.genome.id}
+              onSelectGenome={handleSelectGenome}
+            />
+          )}
         </main>
       </div>
     </div>

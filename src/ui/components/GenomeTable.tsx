@@ -4,13 +4,14 @@ import { genomeToEulerDegrees } from '../../domain/genome'
 interface GenomeTableProps {
   readonly population: readonly Individual[]
   readonly selectedGenomeId: string | undefined
+  readonly onSelectGenome: (genomeId: string) => void
 }
 
 function fmt(n: number): string {
   return n.toFixed(1)
 }
 
-export function GenomeTable({ population, selectedGenomeId }: GenomeTableProps) {
+export function GenomeTable({ population, selectedGenomeId, onSelectGenome }: GenomeTableProps) {
   return (
     <div className="genome-table-wrap">
       <table className="genome-table">
@@ -29,7 +30,11 @@ export function GenomeTable({ population, selectedGenomeId }: GenomeTableProps) 
             const e = genomeToEulerDegrees(ind.genome)
             const isSelected = ind.genome.id === selectedGenomeId
             return (
-              <tr key={ind.genome.id} className={isSelected ? 'selected' : undefined}>
+              <tr
+                key={ind.genome.id}
+                className={isSelected ? 'selected' : undefined}
+                onClick={() => onSelectGenome(ind.genome.id)}
+              >
                 <td>{i + 1}</td>
                 <td className="mono">{ind.genome.id}</td>
                 <td className="mono">

@@ -53,4 +53,58 @@ test.describe('Orientation Optimizer app', () => {
     await expect(page.locator('.viewer-status')).toContainText('Generation')
     await expect(page.locator('.viewer-status')).toContainText('0')
   })
+
+  test('lists the new oblique-optimum test meshes', async ({ page }) => {
+    await page.goto('/')
+
+    const meshSelect = page.locator('.config-section', { hasText: 'Test model' }).locator('select')
+    await expect(meshSelect.locator('option[value="tilted-slab"]')).toHaveCount(1)
+    await expect(meshSelect.locator('option[value="angled-wedge"]')).toHaveCount(1)
+  })
+
+  test('clicking a genome row previews its rotation and shows a Follow best control', async ({ page }) => {
+    await page.goto('/')
+
+    const axisReadout = page.locator('.axis-readout')
+    await expect(axisReadout).toContainText('X 0.0°')
+    await expect(axisReadout).toContainText('Y 0.0°')
+    await expect(axisReadout).toContainText('Z 0.0°')
+
+    const rows = page.locator('.genome-table tbody tr')
+    await expect(rows.first()).toBeVisible()
+
+    // Find a row whose Euler angles are not all 0.0 (i.e. a genuinely different rotation).
+    const rowCount = await rows.count()
+    let targetIndex = -1
+    for (let i = 0; i < rowCount; i++) {
+      const eulerText = (await rows.nth(i).locator('td').nth(3).textContent()) ?? ''
+      if (eulerText.trim() !== '0.0, 0.0, 0.0') {
+        targetIndex = i
+        break
+      }
+    }
+    expect(targetIndex).toBeGreaterThanOrEqual(0)
+
+    const targetRow = rows.nth(targetIndex)
+    const eulerText = (await targetRow.locator('td').nth(3).textContent()) ?? ''
+    const [ex, ey, ez] = eulerText.split(',').map((s) => s.trim())
+
+    await targetRow.click()
+    await expect(targetRow).toHaveClass(/selected/)
+
+    // The viewer's status line should switch from "Best score" to "Selected score",
+    // and a "Follow best" control should appear to clear the selection.
+    await expect(page.locator('.viewer-status')).toContainText('Selected score')
+    const followBestButton = page.getByRole('button', { name: 'Follow best' })
+    await expect(followBestButton).toBeVisible()
+
+    // The axis readout should match the selected genome's Euler angles.
+    await expect(axisReadout).toContainText(`X ${ex}°`)
+    await expect(axisReadout).toContainText(`Y ${ey}°`)
+    await expect(axisReadout).toContainText(`Z ${ez}°`)
+
+    await followBestButton.click()
+    await expect(followBestButton).toHaveCount(0)
+    await expect(page.locator('.viewer-status')).toContainText('Best score')
+  })
 })

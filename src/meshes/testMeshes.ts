@@ -1,6 +1,6 @@
 import { Vector3 } from 'three'
 import { makeMesh, Mesh } from '../domain/mesh'
-import { boxTriangles } from './primitives'
+import { boxTriangles, rotateAndTranslate, wedgeTriangles } from './primitives'
 
 /** A plain cube. Every orientation is roughly equivalent — useful as a sanity baseline. */
 export function makeCubeMesh(size = 10): Mesh {
@@ -62,6 +62,45 @@ export function makeAsymmetricPyramidMesh(): Mesh {
   return makeMesh('Asymmetric Pyramid', tris)
 }
 
+/**
+ * A single rectangular slab, built axis-aligned and then rotated as a whole
+ * by a fixed oblique tilt (37deg about Z, 23deg about X) before being
+ * exported. Because the entire mesh shares one tilt with no untilted anchor
+ * competing against it, resting flat in its own local frame (identity
+ * rotation) is guaranteed sub-optimal — the true optimum is exactly the
+ * inverse of the baked-in tilt, a known non-axis-aligned rotation, which
+ * makes this a good regression check that the optimizer can actually climb
+ * out of an off-axis starting point instead of just picking a seeded axis.
+ */
+export function makeTiltedSlabMesh(): Mesh {
+  const local = boxTriangles(new Vector3(-12, -2, -6), new Vector3(12, 2, 6))
+  const tiltedZ = rotateAndTranslate(local, new Vector3(0, 0, 1), 37, new Vector3(0, 0, 0))
+  const tiltedX = rotateAndTranslate(tiltedZ, new Vector3(1, 0, 0), 23, new Vector3(0, 0, 0))
+  return makeMesh('Tilted Slab', tiltedX)
+}
+
+/**
+ * A wedge: a long triangular prism with a scalene cross-section (no two of
+ * its three side faces are parallel, equal in size, or mirror-symmetric),
+ * tilted 25deg about Z and 15deg about X as a unit before export. Unlike a
+ * box, a scalene prism has no pair of opposite parallel faces, so no
+ * axis-aligned rotation can flatten a face "for free" the way it can for a
+ * box — the three side faces sit at three different, non-orthogonal angles,
+ * and the optimizer must actually search among (and between) them for the
+ * lowest-overhang orientation instead of snapping to a seeded axis.
+ */
+export function makeAngledWedgeMesh(): Mesh {
+  const crossSection: [Vector3, Vector3, Vector3] = [
+    new Vector3(-9, -5, 0),
+    new Vector3(11, -3, 0),
+    new Vector3(-2, 8, 0),
+  ]
+  const local = wedgeTriangles(crossSection, -9, 9)
+  const tiltedZ = rotateAndTranslate(local, new Vector3(0, 0, 1), 25, new Vector3(0, 0, 0))
+  const tiltedX = rotateAndTranslate(tiltedZ, new Vector3(1, 0, 0), 15, new Vector3(0, 0, 0))
+  return makeMesh('Angled Wedge', tiltedX)
+}
+
 export interface TestMeshOption {
   readonly id: string
   readonly label: string
@@ -72,4 +111,6 @@ export const TEST_MESHES: readonly TestMeshOption[] = [
   { id: 'cube', label: 'Cube (baseline)', build: makeCubeMesh },
   { id: 'l-bracket', label: 'L-Bracket (clear overhang)', build: makeLBracketMesh },
   { id: 'pyramid', label: 'Asymmetric Pyramid (non-obvious optimum)', build: makeAsymmetricPyramidMesh },
+  { id: 'tilted-slab', label: 'Tilted Slab (oblique optimum)', build: makeTiltedSlabMesh },
+  { id: 'angled-wedge', label: 'Angled Wedge (oblique optimum)', build: makeAngledWedgeMesh },
 ]

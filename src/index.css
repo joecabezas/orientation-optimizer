@@ -265,6 +265,28 @@ body {
   height: 420px !important;
 }
 
+.model-viewer-wrap {
+  position: relative;
+}
+
+.axis-readout {
+  position: absolute;
+  bottom: 12px;
+  left: 16px;
+  display: flex;
+  gap: 14px;
+  padding: 6px 12px;
+  border-radius: 8px;
+  background: rgba(18, 21, 26, 0.72);
+  pointer-events: none;
+}
+
+.axis-readout-label {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  font-weight: 600;
+}
+
 /* --- Fitness chart --- */
 
 .fitness-chart {
@@ -370,6 +392,10 @@ body {
   text-transform: uppercase;
   color: var(--text-muted);
   border-bottom: 1px solid var(--border-hairline);
+}
+
+.genome-table tbody tr {
+  cursor: pointer;
 }
 
 .genome-table tbody td {
