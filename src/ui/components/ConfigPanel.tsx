@@ -1,5 +1,7 @@
 import { EAConfig, EA_PRESETS, FitnessStrategyName, PresetName } from '../../ea/EAConfig'
 import { TestMeshOption } from '../../meshes/testMeshes'
+import { primaryButtonClass, secondaryButtonClass } from '../buttonStyles'
+import { selectClass } from '../formStyles'
 
 interface ConfigPanelProps {
   readonly config: EAConfig
@@ -31,18 +33,19 @@ function NumberField({
   onChange: (v: number) => void
 }) {
   return (
-    <label className="config-field">
+    <label className="flex flex-col gap-1 text-xs text-text-secondary">
       <span>{label}</span>
-      <div className="config-field-row">
+      <div className="flex items-center gap-2">
         <input
           type="range"
+          className="flex-1 accent-accent"
           min={min}
           max={max}
           step={step}
           value={value}
           onChange={(e) => onChange(Number(e.target.value))}
         />
-        <span className="mono config-field-value">{value}</span>
+        <span className="min-w-[34px] text-right font-mono text-xs tabular-nums text-text-primary">{value}</span>
       </div>
     </label>
   )
@@ -64,10 +67,10 @@ export function ConfigPanel({
   const patch = (partial: Partial<EAConfig>) => onConfigChange({ ...config, ...partial })
 
   return (
-    <div className="config-panel">
-      <div className="config-section">
-        <span className="config-section-title">Test model</span>
-        <select value={selectedMeshId} onChange={(e) => onMeshChange(e.target.value)}>
+    <div className="flex flex-col gap-[22px]">
+      <div className="flex flex-col gap-2.5">
+        <span className="text-[11px] font-semibold tracking-[0.08em] text-text-muted uppercase">Test model</span>
+        <select className={selectClass} value={selectedMeshId} onChange={(e) => onMeshChange(e.target.value)}>
           {testMeshes.map((m) => (
             <option key={m.id} value={m.id}>
               {m.label}
@@ -76,24 +79,33 @@ export function ConfigPanel({
         </select>
       </div>
 
-      <div className="config-section">
-        <span className="config-section-title">Preset</span>
-        <div className="preset-buttons">
+      <div className="flex flex-col gap-2.5">
+        <span className="text-[11px] font-semibold tracking-[0.08em] text-text-muted uppercase">Preset</span>
+        <div className="flex gap-1.5">
           {(Object.keys(EA_PRESETS) as PresetName[]).map((preset) => (
             <button
               key={preset}
-              className={activePreset === preset ? 'preset-btn active' : 'preset-btn'}
+              className={
+                'flex-1 cursor-pointer rounded-md border px-0 py-[7px] font-display text-xs font-semibold capitalize transition-colors duration-150 ' +
+                (activePreset === preset
+                  ? 'border-accent bg-accent-dim text-white'
+                  : 'border-border-hairline bg-surface-2 text-text-secondary hover:border-accent-dim hover:text-text-primary')
+              }
               onClick={() => onPresetChange(preset)}
             >
               {preset}
             </button>
           ))}
         </div>
-        {activePreset === 'custom' && <span className="config-hint">Custom (edited from a preset)</span>}
+        {activePreset === 'custom' && (
+          <span className="text-[11px] text-text-muted italic">Custom (edited from a preset)</span>
+        )}
       </div>
 
-      <div className="config-section">
-        <span className="config-section-title">Meta-parameters</span>
+      <div className="flex flex-col gap-2.5">
+        <span className="text-[11px] font-semibold tracking-[0.08em] text-text-muted uppercase">
+          Meta-parameters
+        </span>
         <NumberField
           label="Population size"
           value={config.populationSize}
@@ -102,9 +114,10 @@ export function ConfigPanel({
           step={4}
           onChange={(v) => patch({ populationSize: v })}
         />
-        <label className="config-field">
+        <label className="flex flex-col gap-1 text-xs text-text-secondary">
           <span>Seeding shell (initial directions)</span>
           <select
+            className={selectClass}
             value={config.seedingShellLevel}
             onChange={(e) => patch({ seedingShellLevel: Number(e.target.value) as 6 | 14 | 26 })}
           >
@@ -153,9 +166,10 @@ export function ConfigPanel({
           step={5}
           onChange={(v) => patch({ maxGenerations: v })}
         />
-        <label className="config-field">
+        <label className="flex flex-col gap-1 text-xs text-text-secondary">
           <span>Fitness strategy</span>
           <select
+            className={selectClass}
             value={config.fitnessStrategy}
             onChange={(e) => patch({ fitnessStrategy: e.target.value as FitnessStrategyName })}
           >
@@ -183,17 +197,17 @@ export function ConfigPanel({
         />
       </div>
 
-      <div className="config-section run-controls">
+      <div className="flex flex-row gap-2">
         {!isRunning ? (
-          <button className="primary-btn" onClick={onStart}>
+          <button className={`flex-1 ${primaryButtonClass}`} onClick={onStart}>
             Start
           </button>
         ) : (
-          <button className="primary-btn" onClick={onPause}>
+          <button className={`flex-1 ${primaryButtonClass}`} onClick={onPause}>
             Pause
           </button>
         )}
-        <button className="secondary-btn" onClick={onReset}>
+        <button className={`flex-1 ${secondaryButtonClass}`} onClick={onReset}>
           Reset
         </button>
       </div>

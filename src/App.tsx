@@ -7,6 +7,7 @@ import { EAConfig, EA_PRESETS, PresetName } from './ea/EAConfig'
 import { createEngine } from './ea/createEngine'
 import { EvolutionEngine, GenerationResult } from './ea/EvolutionEngine'
 import { TEST_MESHES } from './meshes/testMeshes'
+import { secondaryButtonClass } from './ui/buttonStyles'
 
 export default function App() {
   const [selectedMeshId, setSelectedMeshId] = useState(TEST_MESHES[1].id)
@@ -96,16 +97,16 @@ export default function App() {
     (selectedGenomeId && result?.population.find((ind) => ind.genome.id === selectedGenomeId)) || result?.best
 
   return (
-    <div className="app-root">
-      <header className="app-header">
-        <h1>Orientation Optimizer</h1>
-        <p className="app-subtitle">
+    <div className="flex min-h-full flex-col">
+      <header className="border-b border-border-hairline bg-gradient-to-b from-surface-1 to-surface-0 px-7 pt-5 pb-4">
+        <h1 className="m-0 text-[22px] font-bold tracking-[-0.01em]">Orientation Optimizer</h1>
+        <p className="mt-1 mb-0 text-[13px] text-text-secondary">
           Evolutionary search for the 3D-print orientation that minimizes support material.
         </p>
       </header>
 
-      <div className="app-body">
-        <aside className="app-sidebar">
+      <div className="flex min-h-0 flex-1">
+        <aside className="w-[300px] shrink-0 overflow-y-auto border-r border-border-hairline bg-surface-1 p-[18px]">
           <ConfigPanel
             config={config}
             activePreset={preset}
@@ -121,19 +122,27 @@ export default function App() {
           />
         </aside>
 
-        <main className="app-main">
-          <div className="viewer-panel">
-            <div className="viewer-status">
+        <main className="flex flex-1 flex-col gap-5 overflow-y-auto px-6 pt-[18px] pb-10">
+          <div className="overflow-hidden rounded-[10px] border border-border-hairline bg-surface-1">
+            <div className="flex items-center gap-5 border-b border-border-hairline px-4 py-2.5 text-[13px] text-text-secondary">
               <span>
-                Generation <strong>{result?.generation ?? 0}</strong> / {config.maxGenerations}
+                Generation{' '}
+                <strong className="font-mono font-semibold text-text-primary">{result?.generation ?? 0}</strong> /{' '}
+                {config.maxGenerations}
               </span>
               <span>
                 {selectedGenomeId ? 'Selected score' : 'Best score'}{' '}
-                <strong>{displayedIndividual?.score.toFixed(4) ?? '-'}</strong>
+                <strong className="font-mono font-semibold text-text-primary">
+                  {displayedIndividual?.score.toFixed(4) ?? '-'}
+                </strong>
               </span>
-              {engineRef.current?.isDone && <span className="badge-done">Done</span>}
+              {engineRef.current?.isDone && (
+                <span className="ml-auto rounded-full bg-[rgba(28,175,122,0.15)] px-2.5 py-[3px] text-[11px] font-semibold tracking-[0.04em] text-[#1baf7a] uppercase">
+                  Done
+                </span>
+              )}
               {selectedGenomeId && (
-                <button className="secondary-btn" onClick={() => setSelectedGenomeId(undefined)}>
+                <button className={secondaryButtonClass} onClick={() => setSelectedGenomeId(undefined)}>
                   Follow best
                 </button>
               )}

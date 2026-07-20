@@ -112,7 +112,7 @@ export function ModelViewer({ mesh, rotation, tweenDurationMs }: ModelViewerProp
   const euler = genomeToEulerDegrees({ id: '', rotation })
 
   return (
-    <div className="model-viewer-wrap">
+    <div className="relative [&_canvas]:h-[420px]!">
       <Canvas camera={{ position: [40, 40, 40], fov: 45 }} style={{ background: '#12151a' }}>
         <ambientLight intensity={0.6} />
         <directionalLight position={[30, 50, 20]} intensity={0.8} />
@@ -122,14 +122,14 @@ export function ModelViewer({ mesh, rotation, tweenDurationMs }: ModelViewerProp
         <Grid args={[100, 100]} position={[0, -20, 0]} cellColor="#334" sectionColor="#556" fadeDistance={120} />
         <OrbitControls />
       </Canvas>
-      <div className="axis-readout">
-        <span className="axis-readout-label" style={{ color: AXIS_COLORS.x }}>
+      <div className="pointer-events-none absolute bottom-3 left-4 flex gap-[14px] rounded-lg bg-[rgba(18,21,26,0.72)] px-3 py-1.5">
+        <span className="font-mono text-xs font-semibold" style={{ color: AXIS_COLORS.x }}>
           X {euler.x.toFixed(1)}°
         </span>
-        <span className="axis-readout-label" style={{ color: AXIS_COLORS.y }}>
+        <span className="font-mono text-xs font-semibold" style={{ color: AXIS_COLORS.y }}>
           Y {euler.y.toFixed(1)}°
         </span>
-        <span className="axis-readout-label" style={{ color: AXIS_COLORS.z }}>
+        <span className="font-mono text-xs font-semibold" style={{ color: AXIS_COLORS.z }}>
           Z {euler.z.toFixed(1)}°
         </span>
       </div>

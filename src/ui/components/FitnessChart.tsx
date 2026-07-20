@@ -25,13 +25,13 @@ const COLOR_AVG = '#008300' // categorical slot 2 (green)
 function ChartTooltip({ active, payload, label }: any) {
   if (!active || !payload?.length) return null
   return (
-    <div className="chart-tooltip">
-      <div className="chart-tooltip-title">Generation {label}</div>
+    <div className="rounded-md border border-border-hairline bg-surface-3 px-2.5 py-2 text-xs">
+      <div className="mb-1 text-text-muted">Generation {label}</div>
       {payload.map((entry: any) => (
-        <div key={entry.dataKey} className="chart-tooltip-row">
-          <span className="chart-tooltip-swatch" style={{ background: entry.color }} />
+        <div key={entry.dataKey} className="flex items-center gap-1.5 text-text-primary">
+          <span className="h-2 w-2 rounded-sm" style={{ background: entry.color }} />
           <span>{entry.name}</span>
-          <span className="mono">{entry.value.toFixed(4)}</span>
+          <span className="font-mono tabular-nums">{entry.value.toFixed(4)}</span>
         </div>
       ))}
     </div>
@@ -43,10 +43,10 @@ export function FitnessChart({ history }: FitnessChartProps) {
   const data = useMemo(() => [...history], [history])
 
   return (
-    <div className="viz-root fitness-chart">
-      <div className="fitness-chart-header">
-        <span className="fitness-chart-title">Support score vs. generation</span>
-        <label className="fitness-chart-toggle">
+    <div className="rounded-[10px] border border-border-hairline bg-surface-1 px-4 pt-[14px] pb-1.5">
+      <div className="mb-1 flex items-center justify-between">
+        <span className="text-[13px] font-semibold text-text-primary">Support score vs. generation</span>
+        <label className="flex cursor-pointer items-center gap-1.5 text-xs text-text-secondary">
           <input
             type="checkbox"
             checked={showAverage}
@@ -88,13 +88,13 @@ export function FitnessChart({ history }: FitnessChartProps) {
           )}
         </LineChart>
       </ResponsiveContainer>
-      <div className="fitness-chart-legend">
-        <span className="legend-item">
-          <span className="legend-swatch" style={{ background: COLOR_BEST }} /> Best score
+      <div className="flex gap-4 px-1 pt-1 pb-2">
+        <span className="flex items-center gap-1.5 text-xs text-text-secondary">
+          <span className="h-2.5 w-2.5 rounded-sm" style={{ background: COLOR_BEST }} /> Best score
         </span>
         {showAverage && (
-          <span className="legend-item">
-            <span className="legend-swatch" style={{ background: COLOR_AVG }} /> Population average
+          <span className="flex items-center gap-1.5 text-xs text-text-secondary">
+            <span className="h-2.5 w-2.5 rounded-sm" style={{ background: COLOR_AVG }} /> Population average
           </span>
         )}
       </div>
