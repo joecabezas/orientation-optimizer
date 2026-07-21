@@ -124,7 +124,10 @@ export default function App() {
 
         <main className="flex flex-1 flex-col gap-5 overflow-y-auto px-6 pt-[18px] pb-10">
           <div className="overflow-hidden rounded-[10px] border border-border-hairline bg-surface-1">
-            <div className="flex items-center gap-5 border-b border-border-hairline px-4 py-2.5 text-[13px] text-text-secondary">
+            <div
+              data-testid="viewer-status"
+              className="flex items-center gap-5 border-b border-border-hairline px-4 py-2.5 text-[13px] text-text-secondary"
+            >
               <span>
                 Generation{' '}
                 <strong className="font-mono font-semibold text-text-primary">{result?.generation ?? 0}</strong> /{' '}

@@ -70,7 +70,12 @@ export function ConfigPanel({
     <div className="flex flex-col gap-[22px]">
       <div className="flex flex-col gap-2.5">
         <span className="text-[11px] font-semibold tracking-[0.08em] text-text-muted uppercase">Test model</span>
-        <select className={selectClass} value={selectedMeshId} onChange={(e) => onMeshChange(e.target.value)}>
+        <select
+          data-testid="mesh-select"
+          className={selectClass}
+          value={selectedMeshId}
+          onChange={(e) => onMeshChange(e.target.value)}
+        >
           {testMeshes.map((m) => (
             <option key={m.id} value={m.id}>
               {m.label}

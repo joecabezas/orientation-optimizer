@@ -16,7 +16,10 @@ const thClass =
 
 export function GenomeTable({ population, selectedGenomeId, onSelectGenome }: GenomeTableProps) {
   return (
-    <div className="max-h-[360px] overflow-auto rounded-[10px] border border-border-hairline bg-surface-1">
+    <div
+      data-testid="genome-table"
+      className="max-h-[360px] overflow-auto rounded-[10px] border border-border-hairline bg-surface-1"
+    >
       <table className="w-full border-collapse text-xs">
         <thead>
           <tr>
@@ -39,6 +42,7 @@ export function GenomeTable({ population, selectedGenomeId, onSelectGenome }: Ge
               <tr
                 key={ind.genome.id}
                 className="group cursor-pointer"
+                data-selected={isSelected}
                 onClick={() => onSelectGenome(ind.genome.id)}
               >
                 <td className={tdClass}>{i + 1}</td>

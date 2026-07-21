@@ -9,7 +9,7 @@ test.describe('Orientation Optimizer app', () => {
     // Fitness strategy defaults to the printer-agnostic projected-area strategy.
     await expect(page.getByLabel('Fitness strategy')).toHaveValue('projected-area')
 
-    const viewerStatus = page.locator('.viewer-status')
+    const viewerStatus = page.getByTestId('viewer-status')
 
     // Generation counter starts at 0 before any run.
     await expect(viewerStatus).toContainText('Generation')
@@ -20,7 +20,7 @@ test.describe('Orientation Optimizer app', () => {
     // Generation should advance past 0 once the run is going.
     await page.waitForFunction(
       () => {
-        const strongEls = Array.from(document.querySelectorAll('.viewer-status strong'))
+        const strongEls = Array.from(document.querySelectorAll('[data-testid="viewer-status"] strong'))
         const genText = strongEls[0]?.textContent ?? '0'
         return Number(genText) > 0
       },
@@ -47,17 +47,17 @@ test.describe('Orientation Optimizer app', () => {
   test('switching test meshes resets the run and updates the viewer', async ({ page }) => {
     await page.goto('/')
 
-    const meshSelect = page.locator('.config-section', { hasText: 'Test model' }).locator('select')
+    const meshSelect = page.getByTestId('mesh-select')
     await meshSelect.selectOption('l-bracket')
 
-    await expect(page.locator('.viewer-status')).toContainText('Generation')
-    await expect(page.locator('.viewer-status')).toContainText('0')
+    await expect(page.getByTestId('viewer-status')).toContainText('Generation')
+    await expect(page.getByTestId('viewer-status')).toContainText('0')
   })
 
   test('lists the new oblique-optimum test meshes', async ({ page }) => {
     await page.goto('/')
 
-    const meshSelect = page.locator('.config-section', { hasText: 'Test model' }).locator('select')
+    const meshSelect = page.getByTestId('mesh-select')
     await expect(meshSelect.locator('option[value="tilted-slab"]')).toHaveCount(1)
     await expect(meshSelect.locator('option[value="angled-wedge"]')).toHaveCount(1)
   })
@@ -65,12 +65,12 @@ test.describe('Orientation Optimizer app', () => {
   test('clicking a genome row previews its rotation and shows a Follow best control', async ({ page }) => {
     await page.goto('/')
 
-    const axisReadout = page.locator('.axis-readout')
+    const axisReadout = page.getByTestId('axis-readout')
     await expect(axisReadout).toContainText('X 0.0°')
     await expect(axisReadout).toContainText('Y 0.0°')
     await expect(axisReadout).toContainText('Z 0.0°')
 
-    const rows = page.locator('.genome-table tbody tr')
+    const rows = page.getByTestId('genome-table').locator('tbody tr')
     await expect(rows.first()).toBeVisible()
 
     // Find a row whose Euler angles are not all 0.0 (i.e. a genuinely different rotation).
@@ -90,11 +90,11 @@ test.describe('Orientation Optimizer app', () => {
     const [ex, ey, ez] = eulerText.split(',').map((s) => s.trim())
 
     await targetRow.click()
-    await expect(targetRow).toHaveClass(/selected/)
+    await expect(targetRow).toHaveAttribute('data-selected', 'true')
 
     // The viewer's status line should switch from "Best score" to "Selected score",
     // and a "Follow best" control should appear to clear the selection.
-    await expect(page.locator('.viewer-status')).toContainText('Selected score')
+    await expect(page.getByTestId('viewer-status')).toContainText('Selected score')
     const followBestButton = page.getByRole('button', { name: 'Follow best' })
     await expect(followBestButton).toBeVisible()
 
@@ -105,6 +105,6 @@ test.describe('Orientation Optimizer app', () => {
 
     await followBestButton.click()
     await expect(followBestButton).toHaveCount(0)
-    await expect(page.locator('.viewer-status')).toContainText('Best score')
+    await expect(page.getByTestId('viewer-status')).toContainText('Best score')
   })
 })

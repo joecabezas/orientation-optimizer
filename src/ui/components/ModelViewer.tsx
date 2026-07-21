@@ -122,7 +122,10 @@ export function ModelViewer({ mesh, rotation, tweenDurationMs }: ModelViewerProp
         <Grid args={[100, 100]} position={[0, -20, 0]} cellColor="#334" sectionColor="#556" fadeDistance={120} />
         <OrbitControls />
       </Canvas>
-      <div className="pointer-events-none absolute bottom-3 left-4 flex gap-[14px] rounded-lg bg-[rgba(18,21,26,0.72)] px-3 py-1.5">
+      <div
+        data-testid="axis-readout"
+        className="pointer-events-none absolute bottom-3 left-4 flex gap-[14px] rounded-lg bg-[rgba(18,21,26,0.72)] px-3 py-1.5"
+      >
         <span className="font-mono text-xs font-semibold" style={{ color: AXIS_COLORS.x }}>
           X {euler.x.toFixed(1)}°
         </span>
