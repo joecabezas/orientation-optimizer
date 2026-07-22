@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef } from 'react'
 import { Canvas, useFrame } from '@react-three/fiber'
-import { Grid, Line, OrbitControls, Text } from '@react-three/drei'
+import { Billboard, Grid, Line, OrbitControls, Text } from '@react-three/drei'
 import { Group, Mesh as ThreeMesh, Quaternion, Vector3 } from 'three'
 import { Mesh, rotatedMinY } from '../../domain/mesh'
 import { genomeToEulerDegrees } from '../../domain/genome'
@@ -59,17 +59,18 @@ function AxisArrow({ direction, color, label }: AxisArrowProps) {
   return (
     <group>
       <Line points={[[0, 0, 0], tip.toArray()]} color={color} lineWidth={3} />
-      <Text
-        position={labelPosition.toArray()}
-        fontSize={3.4}
-        color={color}
-        outlineWidth={0.3}
-        outlineColor="#12151a"
-        anchorX="center"
-        anchorY="middle"
-      >
-        {label}
-      </Text>
+      <Billboard position={labelPosition.toArray()}>
+        <Text
+          fontSize={3.4}
+          color={color}
+          outlineWidth={0.3}
+          outlineColor="#12151a"
+          anchorX="center"
+          anchorY="middle"
+        >
+          {label}
+        </Text>
+      </Billboard>
     </group>
   )
 }
