@@ -44,6 +44,38 @@ function Checkbox({
   )
 }
 
+function RadioGroup<T extends string>({
+  name,
+  options,
+  value,
+  onChange,
+}: {
+  name: string
+  options: readonly { value: T; label: string; hint?: string }[]
+  value: T
+  onChange: (value: T) => void
+}) {
+  return (
+    <div className="flex flex-col gap-1.5">
+      {options.map((opt) => (
+        <label key={opt.value} className="flex cursor-pointer items-start gap-2 text-xs text-text-secondary">
+          <input
+            type="radio"
+            name={name}
+            className="mt-0.5 accent-accent"
+            checked={value === opt.value}
+            onChange={() => onChange(opt.value)}
+          />
+          <span className="flex flex-col">
+            <span>{opt.label}</span>
+            {opt.hint && <span className="text-[11px] text-text-muted">{opt.hint}</span>}
+          </span>
+        </label>
+      ))}
+    </div>
+  )
+}
+
 function NumberField({
   label,
   value,
@@ -138,6 +170,29 @@ export function ConfigPanel({
         <span className="text-[11px] font-semibold tracking-[0.08em] text-text-muted uppercase">
           Meta-parameters
         </span>
+        <div className="flex flex-col gap-1.5 text-xs text-text-secondary">
+          <span>Fitness strategy</span>
+          <RadioGroup<FitnessStrategyName>
+            name="fitness-strategy"
+            value={config.fitnessStrategy}
+            onChange={(v) => patch({ fitnessStrategy: v })}
+            options={[
+              { value: 'support-aware', label: 'Support-aware', hint: 'Height + contact penalty' },
+              { value: 'projected-area', label: 'Projected area', hint: 'Printer-agnostic' },
+              { value: 'overhang-angle', label: 'Overhang angle', hint: 'Printer-specific' },
+            ]}
+          />
+        </div>
+        {(config.fitnessStrategy === 'overhang-angle' || config.fitnessStrategy === 'support-aware') && (
+          <NumberField
+            label="Critical overhang angle (deg)"
+            value={config.criticalOverhangAngleDeg}
+            min={20}
+            max={70}
+            step={1}
+            onChange={(v) => patch({ criticalOverhangAngleDeg: v })}
+          />
+        )}
         <NumberField
           label="Population size"
           value={config.populationSize}
@@ -222,28 +277,6 @@ export function ConfigPanel({
           step={5}
           onChange={(v) => patch({ maxGenerations: v })}
         />
-        <label className="flex flex-col gap-1 text-xs text-text-secondary">
-          <span>Fitness strategy</span>
-          <select
-            className={selectClass}
-            value={config.fitnessStrategy}
-            onChange={(e) => patch({ fitnessStrategy: e.target.value as FitnessStrategyName })}
-          >
-            <option value="projected-area">Projected area (printer-agnostic)</option>
-            <option value="overhang-angle">Overhang angle (printer-specific)</option>
-            <option value="support-aware">Support-aware (height + contact penalty)</option>
-          </select>
-        </label>
-        {(config.fitnessStrategy === 'overhang-angle' || config.fitnessStrategy === 'support-aware') && (
-          <NumberField
-            label="Critical overhang angle (deg)"
-            value={config.criticalOverhangAngleDeg}
-            min={20}
-            max={70}
-            step={1}
-            onChange={(v) => patch({ criticalOverhangAngleDeg: v })}
-          />
-        )}
         <NumberField
           label="Tween duration (ms)"
           value={config.tweenDurationMs}

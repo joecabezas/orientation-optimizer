@@ -28,6 +28,10 @@
     height: 100%;
   }
 
+  html {
+    overflow-x: hidden;
+  }
+
   body {
     @apply m-0 bg-surface-0 text-text-primary font-display antialiased;
   }

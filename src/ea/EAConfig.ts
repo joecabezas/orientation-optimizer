@@ -70,7 +70,7 @@ export const EA_PRESETS: Record<PresetName, EAConfig> = {
     mutationProbability: 0.3,
     mutationStrength: 0.5,
     maxGenerations: 25,
-    fitnessStrategy: 'projected-area',
+    fitnessStrategy: 'support-aware',
     criticalOverhangAngleDeg: 45,
     tweenDurationMs: 200,
   },

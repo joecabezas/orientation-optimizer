@@ -101,9 +101,10 @@ export default function App() {
 
   return (
     <div className="flex h-full min-h-0 flex-col">
-      <header className="border-b border-border-hairline bg-gradient-to-b from-surface-1 to-surface-0 px-7 pt-5 pb-4">
-        <h1 className="m-0 text-[22px] font-bold tracking-[-0.01em]">Orientation Optimizer</h1>
-        <p className="mt-1 mb-0 text-[13px] text-text-secondary">
+      <header className="flex items-baseline gap-2.5 border-b border-border-hairline bg-gradient-to-b from-surface-1 to-surface-0 px-5 py-2.5">
+        <h1 className="m-0 shrink-0 text-[14px] font-bold tracking-[-0.005em]">Orientation Optimizer</h1>
+        <span className="shrink-0 text-[12px] text-text-muted">·</span>
+        <p className="m-0 min-w-0 truncate text-[12px] text-text-secondary">
           Evolutionary search for the 3D-print orientation that minimizes support material.
         </p>
       </header>
@@ -125,7 +126,7 @@ export default function App() {
           />
         </aside>
 
-        <main className="flex min-h-0 flex-1 flex-col gap-5 px-6 pt-[18px] pb-10">
+        <main className="flex min-h-0 min-w-0 flex-1 flex-col gap-5 px-6 pt-[18px] pb-10">
           <div className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-[10px] border border-border-hairline bg-surface-1">
             <div
               data-testid="viewer-status"
@@ -162,7 +163,7 @@ export default function App() {
             )}
           </div>
 
-          <div className="flex min-h-0 flex-1 gap-5">
+          <div className="flex min-h-0 min-w-0 flex-1 gap-5">
             <div className="min-h-0 min-w-0 flex-1">
               <FitnessChart history={history} />
             </div>

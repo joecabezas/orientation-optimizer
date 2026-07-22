@@ -44,9 +44,11 @@ export function FitnessChart({ history }: FitnessChartProps) {
 
   return (
     <div className="flex h-full flex-col rounded-[10px] border border-border-hairline bg-surface-1 px-4 pt-[14px] pb-1.5">
-      <div className="mb-1 flex items-center justify-between">
-        <span className="text-[13px] font-semibold text-text-primary">Support score vs. generation</span>
-        <label className="flex cursor-pointer items-center gap-1.5 text-xs text-text-secondary">
+      <div className="mb-1 flex min-w-0 items-center justify-between gap-2">
+        <span className="min-w-0 truncate text-[13px] font-semibold text-text-primary">
+          Support score vs. generation
+        </span>
+        <label className="flex shrink-0 cursor-pointer items-center gap-1.5 text-xs text-text-secondary">
           <input
             type="checkbox"
             checked={showAverage}
@@ -88,7 +90,7 @@ export function FitnessChart({ history }: FitnessChartProps) {
           )}
         </LineChart>
       </ResponsiveContainer>
-      <div className="flex gap-4 px-1 pt-1 pb-2">
+      <div className="flex flex-wrap gap-4 px-1 pt-1 pb-2">
         <span className="flex items-center gap-1.5 text-xs text-text-secondary">
           <span className="h-2.5 w-2.5 rounded-sm" style={{ background: COLOR_BEST }} /> Best score
         </span>
