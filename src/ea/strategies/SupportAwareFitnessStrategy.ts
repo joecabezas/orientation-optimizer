@@ -1,7 +1,7 @@
 import { Vector3 } from 'three'
 import { Mesh, Triangle } from '../../domain/mesh'
 import { Genome } from '../../domain/genome'
-import { FitnessStrategy } from './FitnessStrategy'
+import { FitnessExplanation, FitnessStrategy } from './FitnessStrategy'
 import { DEFAULT_OVERHANG_ANGLE_CONFIG, OverhangAngleConfig, overhangSeverity } from './overhangSeverity'
 
 export interface SupportAwareFitnessConfig extends OverhangAngleConfig {
@@ -147,10 +147,39 @@ export class SupportAwareFitnessStrategy implements FitnessStrategy {
   constructor(private readonly config: SupportAwareFitnessConfig = DEFAULT_SUPPORT_AWARE_CONFIG) {}
 
   score(mesh: Mesh, genome: Genome): number {
+    return this.evaluate(mesh, genome, false).totalScore
+  }
+
+  /**
+   * Same computation as score(), but also records each triangle's raw
+   * contribution (before the final divide-by-totalArea normalization) so the
+   * UI can show which triangles are driving the number. Kept as a separate
+   * entry point rather than folding into score() so the evolutionary
+   * algorithm's hot loop never pays for the extra `contributions` array.
+   */
+  explain(mesh: Mesh, genome: Genome): FitnessExplanation {
+    const { totalScore, contributions } = this.evaluate(mesh, genome, true)
+    return { totalScore, strategyName: this.name, triangleContributions: contributions ?? [] }
+  }
+
+  private evaluate(
+    mesh: Mesh,
+    genome: Genome,
+    collectContributions: boolean,
+  ): { totalScore: number; contributions?: number[] } {
     const { gridResolution, modelOnModelPenalty } = this.config
 
-    const rotated = mesh.triangles.filter((t) => t.area > 0).map((t) => rotateTriangle(t, genome.rotation))
-    if (rotated.length === 0) return 0
+    const rotated: RotatedTriangle[] = []
+    const rotatedOriginalIndex: number[] = []
+    for (let i = 0; i < mesh.triangles.length; i++) {
+      const tri = mesh.triangles[i]
+      if (tri.area <= 0) continue
+      rotated.push(rotateTriangle(tri, genome.rotation))
+      if (collectContributions) rotatedOriginalIndex.push(i)
+    }
+    if (rotated.length === 0) {
+      return { totalScore: 0, contributions: collectContributions ? new Array(mesh.triangles.length).fill(0) : undefined }
+    }
 
     let minY = Infinity
     let maxY = -Infinity
@@ -165,8 +194,10 @@ export class SupportAwareFitnessStrategy implements FitnessStrategy {
 
     let weightedScore = 0
     let totalArea = 0
+    const contributions = collectContributions ? new Array<number>(mesh.triangles.length).fill(0) : undefined
 
-    for (const tri of rotated) {
+    for (let r = 0; r < rotated.length; r++) {
+      const tri = rotated[r]
       // A flat face whose lowest vertex sits at the mesh's own minY is
       // physically resting on the build plate, not floating above it — it
       // needs no support regardless of how steep its angle is, so it's
@@ -195,10 +226,16 @@ export class SupportAwareFitnessStrategy implements FitnessStrategy {
       const restsOnModel = surfaceBelow !== undefined
       const occlusionMultiplier = restsOnModel ? modelOnModelPenalty : 1
 
-      weightedScore += angleSeverity * heightWeight * occlusionMultiplier * tri.area
+      const contribution = angleSeverity * heightWeight * occlusionMultiplier * tri.area
+      weightedScore += contribution
       totalArea += tri.area
+      if (contributions) contributions[rotatedOriginalIndex[r]] = contribution
     }
 
-    return totalArea > 0 ? weightedScore / totalArea : 0
+    const totalScore = totalArea > 0 ? weightedScore / totalArea : 0
+    if (contributions && totalArea > 0) {
+      for (let k = 0; k < contributions.length; k++) contributions[k] /= totalArea
+    }
+    return { totalScore, contributions }
   }
 }

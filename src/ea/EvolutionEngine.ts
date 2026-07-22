@@ -77,6 +77,11 @@ export class EvolutionEngine {
     return this.generation >= this.config.maxGenerations
   }
 
+  /** The fitness strategy this engine scores with, exposed read-only for UI features like the score explainer. */
+  get fitnessStrategy(): FitnessStrategy {
+    return this.strategies.fitness
+  }
+
   private evaluate(genomes: readonly Genome[]): Individual[] {
     return genomes.map((genome) => ({ genome, score: this.strategies.fitness.score(this.mesh, genome) }))
   }

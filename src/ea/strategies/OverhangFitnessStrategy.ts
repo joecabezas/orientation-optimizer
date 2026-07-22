@@ -1,7 +1,7 @@
 import { Vector3 } from 'three'
 import { Mesh } from '../../domain/mesh'
 import { Genome } from '../../domain/genome'
-import { FitnessStrategy } from './FitnessStrategy'
+import { FitnessExplanation, FitnessStrategy } from './FitnessStrategy'
 import { DEFAULT_OVERHANG_ANGLE_CONFIG, OverhangAngleConfig, overhangSeverity } from './overhangSeverity'
 
 export type OverhangFitnessConfig = OverhangAngleConfig
@@ -39,5 +39,28 @@ export class OverhangFitnessStrategy implements FitnessStrategy {
     }
 
     return totalArea > 0 ? weightedScore / totalArea : 0
+  }
+
+  explain(mesh: Mesh, genome: Genome): FitnessExplanation {
+    const rotated = new Vector3()
+    const raw = new Array<number>(mesh.triangles.length).fill(0)
+    let weightedScore = 0
+    let totalArea = 0
+
+    for (let i = 0; i < mesh.triangles.length; i++) {
+      const tri = mesh.triangles[i]
+      if (tri.area <= 0) continue
+      rotated.copy(tri.normal).applyQuaternion(genome.rotation)
+
+      const severity = overhangSeverity(rotated.y, this.config)
+      const contribution = severity * tri.area
+      raw[i] = contribution
+      weightedScore += contribution
+      totalArea += tri.area
+    }
+
+    const totalScore = totalArea > 0 ? weightedScore / totalArea : 0
+    const triangleContributions = totalArea > 0 ? raw.map((c) => c / totalArea) : raw
+    return { totalScore, strategyName: this.name, triangleContributions }
   }
 }

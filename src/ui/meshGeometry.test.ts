@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { Quaternion, Vector3 } from 'three'
 import { makeMesh } from '../domain/mesh'
-import { meshToGeometry, updateStraightDownColors } from './meshGeometry'
+import { meshToGeometry, updateContributionColors, updateStraightDownColors } from './meshGeometry'
 
 function triangleColor(geometry: ReturnType<typeof meshToGeometry>, triangleIndex: number): number[] {
   const colorAttr = geometry.getAttribute('color')
@@ -31,7 +31,7 @@ describe('updateStraightDownColors', () => {
     const geometry = meshToGeometry(mesh)
     updateStraightDownColors(geometry, mesh, new Quaternion())
 
-    const [r, g, b] = triangleColor(geometry, 0)
+    const [r, , b] = triangleColor(geometry, 0)
     // Base color (#4f9dde) in linear space is brighter in B than R.
     expect(b).toBeGreaterThan(r)
   })
@@ -43,7 +43,7 @@ describe('updateStraightDownColors', () => {
     const geometry = meshToGeometry(mesh)
     updateStraightDownColors(geometry, mesh, new Quaternion())
 
-    const [r, g, b] = triangleColor(geometry, 0)
+    const [r, , b] = triangleColor(geometry, 0)
     expect(b).toBeGreaterThan(r)
   })
 
@@ -57,7 +57,7 @@ describe('updateStraightDownColors', () => {
     const geometry = meshToGeometry(mesh)
     updateStraightDownColors(geometry, mesh, rotation)
 
-    const [r, g, b] = triangleColor(geometry, 0)
+    const [r, , b] = triangleColor(geometry, 0)
     expect(b).toBeGreaterThan(r)
   })
 
@@ -73,5 +73,74 @@ describe('updateStraightDownColors', () => {
     updateStraightDownColors(geometry, mesh, flipped)
     const [rFlipped, , bFlipped] = triangleColor(geometry, 0)
     expect(bFlipped).toBeGreaterThan(rFlipped)
+  })
+})
+
+describe('updateContributionColors', () => {
+  /** Three disjoint triangles so per-triangle colors can be inspected independently. */
+  function threeTriangleMesh() {
+    return makeMesh('three', [
+      new Vector3(0, 0, 0),
+      new Vector3(1, 0, 0),
+      new Vector3(0, 1, 0),
+      new Vector3(10, 0, 0),
+      new Vector3(11, 0, 0),
+      new Vector3(10, 1, 0),
+      new Vector3(20, 0, 0),
+      new Vector3(21, 0, 0),
+      new Vector3(20, 1, 0),
+    ])
+  }
+
+  it('colors a zero-contribution triangle cool (blue) and the top contributor hot (red)', () => {
+    const mesh = threeTriangleMesh()
+    const geometry = meshToGeometry(mesh)
+    updateContributionColors(geometry, mesh, [0, 0.5, 1])
+
+    const [rLow, , bLow] = triangleColor(geometry, 0)
+    expect(bLow).toBeGreaterThan(rLow)
+
+    const [rHigh, gHigh, bHigh] = triangleColor(geometry, 2)
+    expect(rHigh).toBeGreaterThan(gHigh)
+    expect(rHigh).toBeGreaterThan(bHigh)
+  })
+
+  it('produces a color ramp that is monotonically "hotter" (more red, less blue) as contribution increases', () => {
+    const mesh = threeTriangleMesh()
+    const geometry = meshToGeometry(mesh)
+    updateContributionColors(geometry, mesh, [0, 0.5, 1])
+
+    const colors = [0, 1, 2].map((i) => triangleColor(geometry, i))
+    for (let i = 1; i < colors.length; i++) {
+      expect(colors[i][0]).toBeGreaterThanOrEqual(colors[i - 1][0]) // red non-decreasing
+      expect(colors[i][2]).toBeLessThanOrEqual(colors[i - 1][2]) // blue non-increasing
+    }
+  })
+
+  it('avoids pure black/white extremes across the whole ramp, so it stays legible under scene lighting', () => {
+    const mesh = threeTriangleMesh()
+    const geometry = meshToGeometry(mesh)
+    updateContributionColors(geometry, mesh, [0, 0.25, 0.5, 0.75, 1].slice(0, mesh.triangles.length))
+
+    for (let i = 0; i < mesh.triangles.length; i++) {
+      const [r, g, b] = triangleColor(geometry, i)
+      expect(r + g + b).toBeGreaterThan(0.1)
+      expect(Math.max(r, g, b)).toBeLessThan(1)
+    }
+  })
+
+  it('defaults to the coolest (zero-contribution) color for triangles missing from a shorter contributions array', () => {
+    const mesh = threeTriangleMesh()
+    const geometry = meshToGeometry(mesh)
+    // Only triangle 0 has an explicit (high) contribution; 1 and 2 are absent
+    // from the array entirely and should fall back to zero, not undefined/NaN.
+    updateContributionColors(geometry, mesh, [1])
+
+    const [r0, , b0] = triangleColor(geometry, 0)
+    const [r1, , b1] = triangleColor(geometry, 1)
+    const [r2, , b2] = triangleColor(geometry, 2)
+    expect(r0).toBeGreaterThan(b0) // present and hot
+    expect(b1).toBeGreaterThan(r1) // missing, defaults to cool
+    expect(b2).toBeGreaterThan(r2) // missing, defaults to cool
   })
 })

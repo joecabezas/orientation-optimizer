@@ -70,4 +70,17 @@ describe('ProjectedAreaFitnessStrategy', () => {
     expect(strategy.name).toBe('projected-area')
     expect(Object.keys(strategy)).not.toContain('config')
   })
+
+  describe('explain', () => {
+    it('returns one contribution per triangle, matching score() as their weighted average', () => {
+      const mesh = makeFlatDownFacingMesh()
+      const genome = identityGenome()
+      const explanation = strategy.explain(mesh, genome)
+
+      expect(explanation.strategyName).toBe('projected-area')
+      expect(explanation.triangleContributions).toHaveLength(mesh.triangles.length)
+      expect(explanation.totalScore).toBeCloseTo(strategy.score(mesh, genome), 10)
+      expect(explanation.triangleContributions.every((c) => c >= 0)).toBe(true)
+    })
+  })
 })

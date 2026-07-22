@@ -50,3 +50,46 @@ export function updateStraightDownColors(geometry: BufferGeometry, mesh: Mesh, r
   }
   colorAttr.needsUpdate = true
 }
+
+// Three-stop heatmap ramp for the score explainer: cool blue (negligible
+// contribution) through amber (moderate) to hot red (the mesh's biggest
+// contributor). Deliberately avoids pure black/white so the ramp stays
+// legible against the ambient/fill/rim lighting in ModelViewer.
+const RAMP_LOW = new Color('#2f6690')
+const RAMP_MID = new Color('#d9a441')
+const RAMP_HIGH = new Color('#dc2626')
+
+/** Interpolates the heatmap ramp at t in [0, 1], writing into (and returning) `out` to avoid allocating. */
+function rampColorAt(t: number, out: Color): Color {
+  const clamped = Math.min(1, Math.max(0, t))
+  if (clamped <= 0.5) {
+    return out.copy(RAMP_LOW).lerp(RAMP_MID, clamped / 0.5)
+  }
+  return out.copy(RAMP_MID).lerp(RAMP_HIGH, (clamped - 0.5) / 0.5)
+}
+
+/**
+ * Recomputes the geometry's per-triangle color attribute to visualize the
+ * score explainer: each triangle is colored along a blue -> amber -> red ramp
+ * by its normalized fitness contribution (0 = no contribution, 1 = the mesh's
+ * top contributor), independent of the mesh's live rotation — the
+ * contributions themselves already bake in the genome being explained, so
+ * (unlike updateStraightDownColors) this doesn't need to be recomputed as the
+ * mesh tweens toward that genome's orientation.
+ */
+export function updateContributionColors(
+  geometry: BufferGeometry,
+  mesh: Mesh,
+  normalizedContributions: readonly number[],
+): void {
+  const colorAttr = geometry.getAttribute('color') as InstanceType<typeof Float32BufferAttribute>
+  const color = new Color()
+  let i = 0
+  for (let t = 0; t < mesh.triangles.length; t++) {
+    rampColorAt(normalizedContributions[t] ?? 0, color)
+    for (let v = 0; v < 3; v++) {
+      colorAttr.setXYZ(i++, color.r, color.g, color.b)
+    }
+  }
+  colorAttr.needsUpdate = true
+}

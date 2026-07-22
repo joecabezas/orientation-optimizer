@@ -4,16 +4,24 @@ import { Billboard, Grid, Line, OrbitControls, Text } from '@react-three/drei'
 import { Group, Mesh as ThreeMesh, Quaternion, Vector3 } from 'three'
 import { Mesh, rotatedMinY } from '../../domain/mesh'
 import { genomeToEulerDegrees } from '../../domain/genome'
-import { meshToGeometry, updateStraightDownColors } from '../meshGeometry'
+import { meshToGeometry, updateContributionColors, updateStraightDownColors } from '../meshGeometry'
 import { CopyableValue } from './CopyableValue'
 
 interface RotatingMeshProps {
   readonly mesh: Mesh
   readonly targetRotation: Quaternion
   readonly tweenDurationMs: number
+  /**
+   * When set, overrides the normal straight-down-face highlight with the
+   * score explainer's contribution color ramp (index-aligned with
+   * mesh.triangles, normalized to [0, 1]). Undefined reverts to normal
+   * shading — this is meant to be transient, only set while the score
+   * explainer popover is open.
+   */
+  readonly explainContributions?: readonly number[]
 }
 
-function RotatingMesh({ mesh, targetRotation, tweenDurationMs }: RotatingMeshProps) {
+function RotatingMesh({ mesh, targetRotation, tweenDurationMs, explainContributions }: RotatingMeshProps) {
   const meshRef = useRef<ThreeMesh>(null)
   const geometry = useMemo(() => meshToGeometry(mesh), [mesh])
 
@@ -33,7 +41,11 @@ function RotatingMesh({ mesh, targetRotation, tweenDurationMs }: RotatingMeshPro
     // Keep the mesh's lowest point resting on the bed (y=0) at every point
     // in the tween, not just at the tween's endpoints.
     meshRef.current.position.y = -rotatedMinY(mesh, meshRef.current.quaternion)
-    updateStraightDownColors(geometry, mesh, meshRef.current.quaternion)
+    if (explainContributions) {
+      updateContributionColors(geometry, mesh, explainContributions)
+    } else {
+      updateStraightDownColors(geometry, mesh, meshRef.current.quaternion)
+    }
   })
 
   return (
@@ -112,9 +124,10 @@ interface ModelViewerProps {
   readonly mesh: Mesh
   readonly rotation: Quaternion
   readonly tweenDurationMs: number
+  readonly explainContributions?: readonly number[]
 }
 
-export function ModelViewer({ mesh, rotation, tweenDurationMs }: ModelViewerProps) {
+export function ModelViewer({ mesh, rotation, tweenDurationMs, explainContributions }: ModelViewerProps) {
   const euler = genomeToEulerDegrees({ id: '', rotation })
 
   return (
@@ -128,7 +141,12 @@ export function ModelViewer({ mesh, rotation, tweenDurationMs }: ModelViewerProp
         <directionalLight position={[30, 50, 20]} intensity={0.75} />
         <directionalLight position={[-40, 20, -30]} intensity={0.45} />
         <directionalLight position={[10, -30, 35]} intensity={0.3} />
-        <RotatingMesh mesh={mesh} targetRotation={rotation} tweenDurationMs={tweenDurationMs} />
+        <RotatingMesh
+          mesh={mesh}
+          targetRotation={rotation}
+          tweenDurationMs={tweenDurationMs}
+          explainContributions={explainContributions}
+        />
         <RotatingAxisTriad targetRotation={rotation} tweenDurationMs={tweenDurationMs} />
         {/* Print bed reference, at y=0. RotatingMesh offsets the model each frame so its
             rotated lowest point always touches this plane, matching the fitness
