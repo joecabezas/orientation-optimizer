@@ -1,12 +1,28 @@
-import { ShellLevel } from './directionShells'
-
-export type FitnessStrategyName = 'projected-area' | 'overhang-angle'
+export type FitnessStrategyName = 'projected-area' | 'overhang-angle' | 'support-aware'
 
 export interface EAConfig {
   /** Number of genomes per generation. */
   readonly populationSize: number
-  /** Directional shell used to seed the initial population (6/14/26), rest filled randomly. */
-  readonly seedingShellLevel: ShellLevel
+  /** Seed the 6 axis-aligned face-normal directions (up/down/left/right/front/back). */
+  readonly seedAxisDirections: boolean
+  /** Seed the 8 corner-diagonal directions. */
+  readonly seedDiagonalDirections: boolean
+  /**
+   * Seed the 12 edge-midpoint directions — each bisects the angle between two
+   * adjacent face normals, tipping the mesh 45deg between two axis-aligned
+   * placements. Useful for catching optima that lie between two face-flat
+   * orientations rather than exactly on one.
+   */
+  readonly seedEdgeDirections: boolean
+  /**
+   * Seed one direction per one of the mesh's own largest triangles (by area),
+   * resting that face flat on the bed — unlike the generic cube directions
+   * above, these are tailored to the actual mesh's geometry, and the biggest
+   * fitness gains typically come from landing a large flat face on the plate.
+   */
+  readonly seedTopFaces: boolean
+  /** How many of the mesh's largest triangles to seed when seedTopFaces is enabled. */
+  readonly seedTopFacesCount: number
   /** Fraction of the population carried over unchanged as elites each generation (0..1). */
   readonly elitismFraction: number
   /** How many individuals compete in each tournament selection draw. */
@@ -24,11 +40,15 @@ export interface EAConfig {
    * depending on a printer's overhang tolerance. 'overhang-angle' instead
    * targets a specific printer's critical overhang angle, which can occasionally
    * change which orientation ranks best (see criticalOverhangAngleDeg).
+   * 'support-aware' extends 'overhang-angle' with two effects angle alone
+   * misses: support columns cost more the higher up they reach, and support
+   * that lands on other mesh geometry (rather than the bed) is worse than
+   * support that lands on the plate.
    */
   readonly fitnessStrategy: FitnessStrategyName
   /**
    * Overhang angle (degrees from vertical) beyond which a face is considered to
-   * need support. Only used when fitnessStrategy is 'overhang-angle'.
+   * need support. Used when fitnessStrategy is 'overhang-angle' or 'support-aware'.
    */
   readonly criticalOverhangAngleDeg: number
   /** Milliseconds to animate the 3D view tweening to each new generation's best rotation. */
@@ -40,7 +60,11 @@ export type PresetName = 'fast' | 'medium' | 'best'
 export const EA_PRESETS: Record<PresetName, EAConfig> = {
   fast: {
     populationSize: 16,
-    seedingShellLevel: 6,
+    seedAxisDirections: true,
+    seedDiagonalDirections: false,
+    seedEdgeDirections: false,
+    seedTopFaces: true,
+    seedTopFacesCount: 6,
     elitismFraction: 0.2,
     tournamentSize: 2,
     mutationProbability: 0.3,
@@ -52,7 +76,11 @@ export const EA_PRESETS: Record<PresetName, EAConfig> = {
   },
   medium: {
     populationSize: 32,
-    seedingShellLevel: 14,
+    seedAxisDirections: true,
+    seedDiagonalDirections: true,
+    seedEdgeDirections: false,
+    seedTopFaces: true,
+    seedTopFacesCount: 10,
     elitismFraction: 0.15,
     tournamentSize: 3,
     mutationProbability: 0.35,
@@ -64,7 +92,11 @@ export const EA_PRESETS: Record<PresetName, EAConfig> = {
   },
   best: {
     populationSize: 64,
-    seedingShellLevel: 26,
+    seedAxisDirections: true,
+    seedDiagonalDirections: true,
+    seedEdgeDirections: true,
+    seedTopFaces: true,
+    seedTopFacesCount: 10,
     elitismFraction: 0.1,
     tournamentSize: 4,
     mutationProbability: 0.4,

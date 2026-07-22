@@ -25,6 +25,7 @@ export default function App() {
 
   const engineRef = useRef<EvolutionEngine | null>(null)
   const timerRef = useRef<number | null>(null)
+  const engineConfigRef = useRef<EAConfig | null>(null)
 
   const resetEngine = () => {
     if (timerRef.current !== null) {
@@ -34,13 +35,14 @@ export default function App() {
     setIsRunning(false)
     const engine = createEngine(mesh, config)
     engineRef.current = engine
+    engineConfigRef.current = config
     const first = engine.start()
     setResult(first)
     setHistory([{ generation: first.generation, bestScore: first.best.score, averageScore: first.averageScore }])
     setSelectedGenomeId(undefined)
   }
 
-  // Rebuild the engine whenever the mesh or structural config changes.
+  // Rebuild the engine whenever the mesh changes.
   useEffect(() => {
     resetEngine()
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -79,7 +81,8 @@ export default function App() {
   }
 
   const handleStart = () => {
-    if (!engineRef.current) resetEngine()
+    const configChanged = !engineRef.current || engineConfigRef.current !== config
+    if (configChanged) resetEngine()
     setIsRunning(true)
   }
 
@@ -97,7 +100,7 @@ export default function App() {
     (selectedGenomeId && result?.population.find((ind) => ind.genome.id === selectedGenomeId)) || result?.best
 
   return (
-    <div className="flex min-h-full flex-col">
+    <div className="flex h-full min-h-0 flex-col">
       <header className="border-b border-border-hairline bg-gradient-to-b from-surface-1 to-surface-0 px-7 pt-5 pb-4">
         <h1 className="m-0 text-[22px] font-bold tracking-[-0.01em]">Orientation Optimizer</h1>
         <p className="mt-1 mb-0 text-[13px] text-text-secondary">
@@ -122,11 +125,11 @@ export default function App() {
           />
         </aside>
 
-        <main className="flex flex-1 flex-col gap-5 overflow-y-auto px-6 pt-[18px] pb-10">
-          <div className="overflow-hidden rounded-[10px] border border-border-hairline bg-surface-1">
+        <main className="flex min-h-0 flex-1 flex-col gap-5 px-6 pt-[18px] pb-10">
+          <div className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-[10px] border border-border-hairline bg-surface-1">
             <div
               data-testid="viewer-status"
-              className="flex items-center gap-5 border-b border-border-hairline px-4 py-2.5 text-[13px] text-text-secondary"
+              className="flex shrink-0 items-center gap-5 border-b border-border-hairline px-4 py-2.5 text-[13px] text-text-secondary"
             >
               <span>
                 Generation{' '}
@@ -159,15 +162,20 @@ export default function App() {
             )}
           </div>
 
-          <FitnessChart history={history} />
-
-          {result && (
-            <GenomeTable
-              population={result.population}
-              selectedGenomeId={selectedGenomeId ?? result.best.genome.id}
-              onSelectGenome={handleSelectGenome}
-            />
-          )}
+          <div className="flex min-h-0 flex-1 gap-5">
+            <div className="min-h-0 min-w-0 flex-1">
+              <FitnessChart history={history} />
+            </div>
+            {result && (
+              <div className="min-h-0 min-w-0 flex-1">
+                <GenomeTable
+                  population={result.population}
+                  selectedGenomeId={selectedGenomeId ?? result.best.genome.id}
+                  onSelectGenome={handleSelectGenome}
+                />
+              </div>
+            )}
+          </div>
         </main>
       </div>
     </div>

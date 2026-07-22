@@ -17,6 +17,33 @@ interface ConfigPanelProps {
   readonly onReset: () => void
 }
 
+function Checkbox({
+  label,
+  hint,
+  checked,
+  onChange,
+}: {
+  label: string
+  hint?: string
+  checked: boolean
+  onChange: (checked: boolean) => void
+}) {
+  return (
+    <label className="flex cursor-pointer items-start gap-2 text-xs text-text-secondary">
+      <input
+        type="checkbox"
+        className="mt-0.5 accent-accent"
+        checked={checked}
+        onChange={(e) => onChange(e.target.checked)}
+      />
+      <span className="flex flex-col">
+        <span>{label}</span>
+        {hint && <span className="text-[11px] text-text-muted">{hint}</span>}
+      </span>
+    </label>
+  )
+}
+
 function NumberField({
   label,
   value,
@@ -119,18 +146,42 @@ export function ConfigPanel({
           step={4}
           onChange={(v) => patch({ populationSize: v })}
         />
-        <label className="flex flex-col gap-1 text-xs text-text-secondary">
-          <span>Seeding shell (initial directions)</span>
-          <select
-            className={selectClass}
-            value={config.seedingShellLevel}
-            onChange={(e) => patch({ seedingShellLevel: Number(e.target.value) as 6 | 14 | 26 })}
-          >
-            <option value={6}>6 (up/down/left/right/front/back)</option>
-            <option value={14}>14 (+ 8 diagonals)</option>
-            <option value={26}>26 (+ 12 edges)</option>
-          </select>
-        </label>
+        <div className="flex flex-col gap-1.5">
+          <span>Seeding directions (initial population)</span>
+          <Checkbox
+            label="6 axis directions"
+            hint="Up / down / left / right / front / back"
+            checked={config.seedAxisDirections}
+            onChange={(v) => patch({ seedAxisDirections: v })}
+          />
+          <Checkbox
+            label="8 corner diagonals"
+            checked={config.seedDiagonalDirections}
+            onChange={(v) => patch({ seedDiagonalDirections: v })}
+          />
+          <Checkbox
+            label="12 edge directions"
+            hint="Bisects two adjacent faces, tipping the mesh 45° between two axis-aligned placements — catches optima that lie between two flat faces rather than on one."
+            checked={config.seedEdgeDirections}
+            onChange={(v) => patch({ seedEdgeDirections: v })}
+          />
+          <Checkbox
+            label="Top faces of this mesh"
+            hint="Rests each of the mesh's own largest faces flat on the bed — tailored to this model's actual geometry, since the biggest gains usually come from landing a big flat face down."
+            checked={config.seedTopFaces}
+            onChange={(v) => patch({ seedTopFaces: v })}
+          />
+          {config.seedTopFaces && (
+            <NumberField
+              label="Top faces count"
+              value={config.seedTopFacesCount}
+              min={1}
+              max={30}
+              step={1}
+              onChange={(v) => patch({ seedTopFacesCount: v })}
+            />
+          )}
+        </div>
         <NumberField
           label="Elitism fraction"
           value={config.elitismFraction}
@@ -180,9 +231,10 @@ export function ConfigPanel({
           >
             <option value="projected-area">Projected area (printer-agnostic)</option>
             <option value="overhang-angle">Overhang angle (printer-specific)</option>
+            <option value="support-aware">Support-aware (height + contact penalty)</option>
           </select>
         </label>
-        {config.fitnessStrategy === 'overhang-angle' && (
+        {(config.fitnessStrategy === 'overhang-angle' || config.fitnessStrategy === 'support-aware') && (
           <NumberField
             label="Critical overhang angle (deg)"
             value={config.criticalOverhangAngleDeg}

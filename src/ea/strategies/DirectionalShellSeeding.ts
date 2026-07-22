@@ -1,25 +1,61 @@
-import { Quaternion } from 'three'
+import { Quaternion, Vector3 } from 'three'
 import { Genome, makeGenome } from '../../domain/genome'
-import { directionShell, rotationPointingUp, ShellLevel } from '../directionShells'
+import { Mesh } from '../../domain/mesh'
+import {
+  eightDiagonalDirections,
+  rotationPointingUp,
+  sixAxisDirections,
+  topFaceDirections,
+  twelveEdgeDirections,
+} from '../directionShells'
 import { SeedingStrategy } from './SeedingStrategy'
 
+export interface DirectionalShellSeedingOptions {
+  readonly seedAxisDirections: boolean
+  readonly seedDiagonalDirections: boolean
+  readonly seedEdgeDirections: boolean
+  readonly seedTopFaces: boolean
+  readonly seedTopFacesCount: number
+}
+
+/** Rounds a direction to a stable string key for deduplication across sources. */
+function directionKey(d: Vector3): string {
+  return `${d.x.toFixed(3)},${d.y.toFixed(3)},${d.z.toFixed(3)}`
+}
+
 /**
- * Seeds the population with directional-shell rotations (6/14/26 cube
- * directions mapped to "point this direction up"), then fills any remaining
- * population slots with uniformly random rotations for diversity.
+ * Seeds the population from independently toggleable direction sources (cube
+ * axes, corner diagonals, edge midpoints, and/or the mesh's own largest
+ * faces), deduplicated, then fills any remaining population slots with
+ * uniformly random rotations for diversity.
  */
 export class DirectionalShellSeeding implements SeedingStrategy {
-  readonly name: string
+  readonly name = 'directional-shell'
 
-  constructor(private readonly shellLevel: ShellLevel) {
-    this.name = `directional-shell-${shellLevel}`
-  }
+  constructor(
+    private readonly mesh: Mesh,
+    private readonly options: DirectionalShellSeedingOptions,
+  ) {}
 
   seed(populationSize: number): Genome[] {
-    const directions = directionShell(this.shellLevel)
-    const genomes: Genome[] = directions
-      .slice(0, populationSize)
-      .map((dir) => makeGenome(rotationPointingUp(dir)))
+    const { seedAxisDirections, seedDiagonalDirections, seedEdgeDirections, seedTopFaces, seedTopFacesCount } =
+      this.options
+
+    const directions: Vector3[] = []
+    if (seedAxisDirections) directions.push(...sixAxisDirections())
+    if (seedDiagonalDirections) directions.push(...eightDiagonalDirections())
+    if (seedEdgeDirections) directions.push(...twelveEdgeDirections())
+    if (seedTopFaces) directions.push(...topFaceDirections(this.mesh, seedTopFacesCount))
+
+    const seen = new Set<string>()
+    const deduped = directions.filter((d) => {
+      const key = directionKey(d)
+      if (seen.has(key)) return false
+      seen.add(key)
+      return true
+    })
+
+    const genomes: Genome[] = deduped.slice(0, populationSize).map((dir) => makeGenome(rotationPointingUp(dir)))
 
     while (genomes.length < populationSize) {
       genomes.push(makeGenome(randomQuaternion()))

@@ -1,4 +1,5 @@
 import { Quaternion, Vector3 } from 'three'
+import { Mesh } from '../domain/mesh'
 
 const UP = new Vector3(0, 1, 0)
 
@@ -46,16 +47,21 @@ export function twelveEdgeDirections(): Vector3[] {
   return dirs
 }
 
-export type ShellLevel = 6 | 14 | 26
-
 /**
- * Builds up to `level` directions, layered as concentric "shells":
- * 6 = face normals only; 14 = faces + 8 corners; 26 = faces + corners + 12 edges.
- * This mirrors the user's "test 6 axes, then 8 diagonals, then..." exploration idea.
+ * Directions that, passed to rotationPointingUp, rest each of the `count`
+ * largest triangles flat on the bed (i.e. the negated normal of each face,
+ * since rotationPointingUp points the given direction up and it's the
+ * opposite face that ends up touching down). Ranked by area because the
+ * biggest fitness gains typically come from landing a large flat face on the
+ * plate — small triangles are far less likely to be the mesh's dominant
+ * resting surface, so ranking (rather than deduplicating by direction first)
+ * keeps this cheap and lets the largest faces dominate the seed list
+ * regardless of how many triangles share a mesh.
  */
-export function directionShell(level: ShellLevel): Vector3[] {
-  const dirs = [...sixAxisDirections()]
-  if (level >= 14) dirs.push(...eightDiagonalDirections())
-  if (level >= 26) dirs.push(...twelveEdgeDirections())
-  return dirs
+export function topFaceDirections(mesh: Mesh, count: number): Vector3[] {
+  return [...mesh.triangles]
+    .filter((t) => t.area > 0)
+    .sort((a, b) => b.area - a.area)
+    .slice(0, count)
+    .map((t) => t.normal.clone().negate())
 }

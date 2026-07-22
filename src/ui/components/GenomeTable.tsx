@@ -18,7 +18,7 @@ export function GenomeTable({ population, selectedGenomeId, onSelectGenome }: Ge
   return (
     <div
       data-testid="genome-table"
-      className="max-h-[360px] overflow-auto rounded-[10px] border border-border-hairline bg-surface-1"
+      className="h-full overflow-auto rounded-[10px] border border-border-hairline bg-surface-1"
     >
       <table className="w-full border-collapse text-xs">
         <thead>

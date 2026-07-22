@@ -1,19 +1,11 @@
 import { describe, expect, it } from 'vitest'
-import { Quaternion, Vector3 } from 'three'
+import { Vector3 } from 'three'
 import { makeMesh } from '../../domain/mesh'
-import { makeGenome } from '../../domain/genome'
 import { ProjectedAreaFitnessStrategy } from './ProjectedAreaFitnessStrategy'
 import { boxTriangles } from '../../meshes/primitives'
+import { identityGenome, rotatedGenome } from './testFixtures'
 
 const strategy = new ProjectedAreaFitnessStrategy()
-
-function identityGenome() {
-  return makeGenome(new Quaternion())
-}
-
-function rotatedGenome(axis: Vector3, angleDeg: number) {
-  return makeGenome(new Quaternion().setFromAxisAngle(axis.clone().normalize(), (angleDeg * Math.PI) / 180))
-}
 
 /** A single downward-facing quad (two triangles), normal = -Y, area = 4. */
 function makeFlatDownFacingMesh() {

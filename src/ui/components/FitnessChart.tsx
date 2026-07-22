@@ -43,7 +43,7 @@ export function FitnessChart({ history }: FitnessChartProps) {
   const data = useMemo(() => [...history], [history])
 
   return (
-    <div className="rounded-[10px] border border-border-hairline bg-surface-1 px-4 pt-[14px] pb-1.5">
+    <div className="flex h-full flex-col rounded-[10px] border border-border-hairline bg-surface-1 px-4 pt-[14px] pb-1.5">
       <div className="mb-1 flex items-center justify-between">
         <span className="text-[13px] font-semibold text-text-primary">Support score vs. generation</span>
         <label className="flex cursor-pointer items-center gap-1.5 text-xs text-text-secondary">
@@ -55,7 +55,7 @@ export function FitnessChart({ history }: FitnessChartProps) {
           Show population average
         </label>
       </div>
-      <ResponsiveContainer width="100%" height={220}>
+      <ResponsiveContainer width="100%" height="100%" className="min-h-0 flex-1">
         <LineChart data={data} margin={{ top: 8, right: 16, bottom: 0, left: -12 }}>
           <CartesianGrid stroke="#2c2c2a" vertical={false} />
           <XAxis

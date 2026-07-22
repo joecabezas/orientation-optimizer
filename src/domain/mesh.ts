@@ -1,4 +1,4 @@
-import { Vector3 } from 'three'
+import { Quaternion, Vector3 } from 'three'
 
 /** A single triangle of a mesh, in the mesh's original (unrotated) local space. */
 export interface Triangle {
@@ -46,4 +46,17 @@ export function makeMesh(name: string, vertexTriples: readonly Vector3[]): Mesh 
     triangles.push(makeTriangle(vertexTriples[i], vertexTriples[i + 1], vertexTriples[i + 2]))
   }
   return { name, triangles }
+}
+
+/** Lowest Y coordinate of the mesh once rotated — i.e. how far its lowest point sits from its own local origin. */
+export function rotatedMinY(mesh: Mesh, rotation: Quaternion): number {
+  let minY = Infinity
+  const v = new Vector3()
+  for (const tri of mesh.triangles) {
+    for (const vertex of [tri.a, tri.b, tri.c]) {
+      v.copy(vertex).applyQuaternion(rotation)
+      if (v.y < minY) minY = v.y
+    }
+  }
+  return minY === Infinity ? 0 : minY
 }

@@ -4,6 +4,7 @@ import { EvolutionEngine } from './EvolutionEngine'
 import { FitnessStrategy } from './strategies/FitnessStrategy'
 import { OverhangFitnessStrategy } from './strategies/OverhangFitnessStrategy'
 import { ProjectedAreaFitnessStrategy } from './strategies/ProjectedAreaFitnessStrategy'
+import { SupportAwareFitnessStrategy } from './strategies/SupportAwareFitnessStrategy'
 import { DirectionalShellSeeding } from './strategies/DirectionalShellSeeding'
 import { TournamentSelection } from './strategies/TournamentSelection'
 import { SlerpCrossover } from './strategies/SlerpCrossover'
@@ -18,6 +19,13 @@ function createFitnessStrategy(config: EAConfig): FitnessStrategy {
       })
     case 'projected-area':
       return new ProjectedAreaFitnessStrategy()
+    case 'support-aware':
+      return new SupportAwareFitnessStrategy({
+        criticalOverhangAngleDeg: config.criticalOverhangAngleDeg,
+        transitionWidthDeg: 20,
+        gridResolution: 48,
+        modelOnModelPenalty: 1.75,
+      })
   }
 }
 
@@ -25,7 +33,13 @@ function createFitnessStrategy(config: EAConfig): FitnessStrategy {
 export function createEngine(mesh: Mesh, config: EAConfig): EvolutionEngine {
   return new EvolutionEngine(mesh, config, {
     fitness: createFitnessStrategy(config),
-    seeding: new DirectionalShellSeeding(config.seedingShellLevel),
+    seeding: new DirectionalShellSeeding(mesh, {
+      seedAxisDirections: config.seedAxisDirections,
+      seedDiagonalDirections: config.seedDiagonalDirections,
+      seedEdgeDirections: config.seedEdgeDirections,
+      seedTopFaces: config.seedTopFaces,
+      seedTopFacesCount: config.seedTopFacesCount,
+    }),
     selection: new TournamentSelection(config.tournamentSize),
     crossover: new SlerpCrossover(),
     mutation: new AxisAngleMutation(30),
