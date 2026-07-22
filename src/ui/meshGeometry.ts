@@ -51,31 +51,59 @@ export function updateStraightDownColors(geometry: BufferGeometry, mesh: Mesh, r
   colorAttr.needsUpdate = true
 }
 
-// Three-stop heatmap ramp for the score explainer: cool blue (negligible
-// contribution) through amber (moderate) to hot red (the mesh's biggest
-// contributor). Deliberately avoids pure black/white so the ramp stays
-// legible against the ambient/fill/rim lighting in ModelViewer.
-const RAMP_LOW = new Color('#2f6690')
-const RAMP_MID = new Color('#d9a441')
-const RAMP_HIGH = new Color('#dc2626')
+// Neutral gray for triangles that made exactly zero contribution to the
+// score (e.g. a steep wall, or a face resting flat against the bed) — these
+// are "inert", not just "low", so they're deliberately pulled out of the
+// heatmap ramp entirely rather than rendered as its coolest color. Matches
+// the app's existing --color-text-muted token so it reads as muted/inert
+// against both the dark canvas/surface colors and the ramp's saturated hues.
+const ZERO_CONTRIBUTION_COLOR = new Color('#6b7078')
 
-/** Interpolates the heatmap ramp at t in [0, 1], writing into (and returning) `out` to avoid allocating. */
+// Matplotlib's "plasma" colormap for the score explainer, sampled at its
+// standard 10-stop resolution (the same sampling Plotly.js ships), used to
+// color triangles by their normalized fitness contribution: dark purple/blue
+// (t=0, negligible-but-nonzero contribution) through magenta and orange to
+// bright yellow (t=1, the mesh's biggest contributor). Deliberately avoids
+// pure black/white so the ramp stays legible against the ambient/fill/rim
+// lighting in ModelViewer.
+const PLASMA_STOPS: ReadonlyArray<{ t: number; color: Color }> = [
+  { t: 0.0, color: new Color('#0d0887') },
+  { t: 0.111, color: new Color('#46039f') },
+  { t: 0.222, color: new Color('#7201a8') },
+  { t: 0.333, color: new Color('#9c179e') },
+  { t: 0.444, color: new Color('#bd3786') },
+  { t: 0.556, color: new Color('#d8576b') },
+  { t: 0.667, color: new Color('#ed7953') },
+  { t: 0.778, color: new Color('#fb9f3a') },
+  { t: 0.889, color: new Color('#fdca26') },
+  { t: 1.0, color: new Color('#f0f921') },
+]
+
+/** Interpolates the plasma ramp at t in [0, 1], writing into (and returning) `out` to avoid allocating. */
 function rampColorAt(t: number, out: Color): Color {
   const clamped = Math.min(1, Math.max(0, t))
-  if (clamped <= 0.5) {
-    return out.copy(RAMP_LOW).lerp(RAMP_MID, clamped / 0.5)
+  for (let i = 1; i < PLASMA_STOPS.length; i++) {
+    const prev = PLASMA_STOPS[i - 1]
+    const next = PLASMA_STOPS[i]
+    if (clamped <= next.t) {
+      const span = next.t - prev.t
+      const localT = span > 0 ? (clamped - prev.t) / span : 0
+      return out.copy(prev.color).lerp(next.color, localT)
+    }
   }
-  return out.copy(RAMP_MID).lerp(RAMP_HIGH, (clamped - 0.5) / 0.5)
+  return out.copy(PLASMA_STOPS[PLASMA_STOPS.length - 1].color)
 }
 
 /**
  * Recomputes the geometry's per-triangle color attribute to visualize the
- * score explainer: each triangle is colored along a blue -> amber -> red ramp
- * by its normalized fitness contribution (0 = no contribution, 1 = the mesh's
- * top contributor), independent of the mesh's live rotation — the
- * contributions themselves already bake in the genome being explained, so
- * (unlike updateStraightDownColors) this doesn't need to be recomputed as the
- * mesh tweens toward that genome's orientation.
+ * score explainer: triangles with exactly zero normalized contribution (no
+ * effect on the score at all) are shaded neutral gray; every other triangle
+ * — including small-but-nonzero contributors — is colored along the plasma
+ * colormap (dark purple = least, bright yellow = the mesh's top contributor)
+ * by its normalized fitness contribution. Independent of the mesh's live
+ * rotation — the contributions themselves already bake in the genome being
+ * explained, so (unlike updateStraightDownColors) this doesn't need to be
+ * recomputed as the mesh tweens toward that genome's orientation.
  */
 export function updateContributionColors(
   geometry: BufferGeometry,
@@ -86,9 +114,10 @@ export function updateContributionColors(
   const color = new Color()
   let i = 0
   for (let t = 0; t < mesh.triangles.length; t++) {
-    rampColorAt(normalizedContributions[t] ?? 0, color)
+    const contribution = normalizedContributions[t] ?? 0
+    const resolved = contribution === 0 ? color.copy(ZERO_CONTRIBUTION_COLOR) : rampColorAt(contribution, color)
     for (let v = 0; v < 3; v++) {
-      colorAttr.setXYZ(i++, color.r, color.g, color.b)
+      colorAttr.setXYZ(i++, resolved.r, resolved.g, resolved.b)
     }
   }
   colorAttr.needsUpdate = true

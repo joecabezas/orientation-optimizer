@@ -92,23 +92,39 @@ describe('updateContributionColors', () => {
     ])
   }
 
-  it('colors a zero-contribution triangle cool (blue) and the top contributor hot (red)', () => {
+  it('colors a zero-contribution triangle neutral gray and the top contributor bright plasma yellow', () => {
     const mesh = threeTriangleMesh()
     const geometry = meshToGeometry(mesh)
     updateContributionColors(geometry, mesh, [0, 0.5, 1])
 
-    const [rLow, , bLow] = triangleColor(geometry, 0)
-    expect(bLow).toBeGreaterThan(rLow)
+    const [rZero, gZero, bZero] = triangleColor(geometry, 0)
+    // #6b7078 in linear space: r and b close together, g slightly higher — a
+    // neutral gray, not a hue from the ramp (which is never r ≈ b at low t).
+    expect(rZero).toBeCloseTo(bZero, 1)
+    expect(gZero).toBeGreaterThanOrEqual(rZero)
 
     const [rHigh, gHigh, bHigh] = triangleColor(geometry, 2)
-    expect(rHigh).toBeGreaterThan(gHigh)
+    // Plasma's t=1 stop (#f0f921) is bright yellow: high red and green, low blue.
     expect(rHigh).toBeGreaterThan(bHigh)
+    expect(gHigh).toBeGreaterThan(bHigh)
   })
 
-  it('produces a color ramp that is monotonically "hotter" (more red, less blue) as contribution increases', () => {
+  it('colors the low end of the ramp dark purple/blue for a small but nonzero contribution', () => {
     const mesh = threeTriangleMesh()
     const geometry = meshToGeometry(mesh)
-    updateContributionColors(geometry, mesh, [0, 0.5, 1])
+    updateContributionColors(geometry, mesh, [0.001, 0.5, 1])
+
+    const [r, g, b] = triangleColor(geometry, 0)
+    // Near plasma's t=0 stop (#0d0887): blue dominant, red/green low — distinct
+    // from both the mid-ramp warm hues and the neutral zero-contribution gray.
+    expect(b).toBeGreaterThan(r)
+    expect(b).toBeGreaterThan(g)
+  })
+
+  it('produces a plasma ramp that gets monotonically "hotter" (more red, less blue) as contribution increases', () => {
+    const mesh = threeTriangleMesh()
+    const geometry = meshToGeometry(mesh)
+    updateContributionColors(geometry, mesh, [0.001, 0.5, 1])
 
     const colors = [0, 1, 2].map((i) => triangleColor(geometry, i))
     for (let i = 1; i < colors.length; i++) {
@@ -120,7 +136,7 @@ describe('updateContributionColors', () => {
   it('avoids pure black/white extremes across the whole ramp, so it stays legible under scene lighting', () => {
     const mesh = threeTriangleMesh()
     const geometry = meshToGeometry(mesh)
-    updateContributionColors(geometry, mesh, [0, 0.25, 0.5, 0.75, 1].slice(0, mesh.triangles.length))
+    updateContributionColors(geometry, mesh, [0.01, 0.25, 0.5, 0.75, 1].slice(0, mesh.triangles.length))
 
     for (let i = 0; i < mesh.triangles.length; i++) {
       const [r, g, b] = triangleColor(geometry, i)
@@ -129,18 +145,19 @@ describe('updateContributionColors', () => {
     }
   })
 
-  it('defaults to the coolest (zero-contribution) color for triangles missing from a shorter contributions array', () => {
+  it('defaults to the neutral zero-contribution gray for triangles missing from a shorter contributions array', () => {
     const mesh = threeTriangleMesh()
     const geometry = meshToGeometry(mesh)
     // Only triangle 0 has an explicit (high) contribution; 1 and 2 are absent
     // from the array entirely and should fall back to zero, not undefined/NaN.
     updateContributionColors(geometry, mesh, [1])
 
-    const [r0, , b0] = triangleColor(geometry, 0)
+    const [r0, g0, b0] = triangleColor(geometry, 0)
     const [r1, , b1] = triangleColor(geometry, 1)
     const [r2, , b2] = triangleColor(geometry, 2)
-    expect(r0).toBeGreaterThan(b0) // present and hot
-    expect(b1).toBeGreaterThan(r1) // missing, defaults to cool
-    expect(b2).toBeGreaterThan(r2) // missing, defaults to cool
+    expect(r0).toBeGreaterThan(b0) // present and hot (plasma yellow)
+    expect(g0).toBeGreaterThan(b0)
+    expect(r1).toBeCloseTo(b1, 1) // missing, defaults to neutral gray
+    expect(r2).toBeCloseTo(b2, 1) // missing, defaults to neutral gray
   })
 })
