@@ -101,6 +101,103 @@ export function makeAngledWedgeMesh(): Mesh {
   return makeMesh('Angled Wedge', tiltedX)
 }
 
+/**
+ * A block letter "U": two parallel vertical legs joined at the bottom by a
+ * horizontal base bar. Printed with the open end up, the underside of the
+ * base bar is a wide flat overhang spanning the full gap between the legs.
+ * The optimizer should find that resting the U on one of its flat outer
+ * faces (its back, or a leg's outer side) avoids that overhang entirely.
+ */
+export function makeLetterUMesh(): Mesh {
+  const tris: Vector3[] = []
+
+  // Left and right legs: 5x5 cross-section, 25 tall.
+  tris.push(...boxTriangles(new Vector3(-12.5, -8, -2.5), new Vector3(-7.5, 17, 2.5)))
+  tris.push(...boxTriangles(new Vector3(7.5, -8, -2.5), new Vector3(12.5, 17, 2.5)))
+
+  // Base bar: spans the gap between the legs, 5 tall, overhanging when U-up.
+  tris.push(...boxTriangles(new Vector3(-12.5, -13, -2.5), new Vector3(12.5, -8, 2.5)))
+
+  return makeMesh('Letter U', tris)
+}
+
+/**
+ * A block letter "N": two full-height vertical strokes plus a diagonal
+ * stroke connecting bottom-left to top-right, the diagonal built as a
+ * straight box rotated into place (like `makeAngledWedgeMesh`'s tilt). The
+ * diagonal sits at a genuinely oblique ~26.6deg angle relative to the two
+ * vertical strokes, so no single axis-aligned rotation can land all three
+ * strokes overhang-free at once — a real oblique-search case.
+ */
+export function makeLetterNMesh(): Mesh {
+  const tris: Vector3[] = []
+
+  // Left and right strokes: 5x5 cross-section, full 30-tall height.
+  tris.push(...boxTriangles(new Vector3(-10, -15, -2.5), new Vector3(-5, 15, 2.5)))
+  tris.push(...boxTriangles(new Vector3(5, -15, -2.5), new Vector3(10, 15, 2.5)))
+
+  // Diagonal stroke, built straight (5x5 cross-section, running along Y)
+  // then rotated about Z so it runs from bottom-left to top-right.
+  const diagonalLocal = boxTriangles(new Vector3(-2.5, -16.7705, -2.5), new Vector3(2.5, 16.7705, 2.5))
+  const diagonal = rotateAndTranslate(diagonalLocal, new Vector3(0, 0, 1), -26.565, new Vector3(0, 0, 0))
+  tris.push(...diagonal)
+
+  return makeMesh('Letter N', tris)
+}
+
+/**
+ * A block letter "R": a full-height left stroke, a squared-off "bowl" on
+ * the upper half (top bar + upper-half right bar + middle bar closing the
+ * loop back to the left stroke), plus a diagonal leg running from the
+ * bowl's middle down to the bottom-right, built the same way as the N's
+ * diagonal. Combines a flat-overhang challenge (the bowl's underside bars)
+ * with an oblique-angle challenge (the diagonal leg) in one asymmetric
+ * shape, similar in spirit to how the Asymmetric Pyramid combines a shelf
+ * overhang with sloped sides.
+ */
+export function makeLetterRMesh(): Mesh {
+  const tris: Vector3[] = []
+
+  // Left stroke: full height.
+  tris.push(...boxTriangles(new Vector3(-10, -15, -2.5), new Vector3(-5, 15, 2.5)))
+
+  // Bowl: top bar, upper-half right bar, and a middle bar closing the loop.
+  tris.push(...boxTriangles(new Vector3(-10, 10, -2.5), new Vector3(10, 15, 2.5))) // top bar
+  tris.push(...boxTriangles(new Vector3(5, 1, -2.5), new Vector3(10, 10, 2.5))) // right bar, upper half only
+  tris.push(...boxTriangles(new Vector3(-10, 1, -2.5), new Vector3(5, 6, 2.5))) // middle bar
+
+  // Diagonal leg: from the bowl's middle-right joint (5, 3.5) down to the
+  // bottom-right (10, -15), built straight then rotated about Z into place.
+  const diagonalLocal = boxTriangles(new Vector3(-2.5, -9.582, -2.5), new Vector3(2.5, 9.582, 2.5))
+  const diagonal = rotateAndTranslate(diagonalLocal, new Vector3(0, 0, 1), 15.12, new Vector3(7.5, -5.75, 0))
+  tris.push(...diagonal)
+
+  return makeMesh('Letter R', tris)
+}
+
+/**
+ * A block letter "D": a full-height left stroke plus a rectangular loop on
+ * the right (top, right full-height, bottom bars) closing back to the
+ * left stroke — a simple squared-off outline, no rounding. The most
+ * box-like and symmetric of the four letters, useful as a closer-to-
+ * baseline sanity case relative to the more asymmetric N and R.
+ */
+export function makeLetterDMesh(): Mesh {
+  const tris: Vector3[] = []
+
+  // Left stroke: full height.
+  tris.push(...boxTriangles(new Vector3(-10, -15, -2.5), new Vector3(-5, 15, 2.5)))
+
+  // Right bar: full height, closing the loop on the right.
+  tris.push(...boxTriangles(new Vector3(5, -15, -2.5), new Vector3(10, 15, 2.5)))
+
+  // Top and bottom bars, connecting the left stroke to the right bar.
+  tris.push(...boxTriangles(new Vector3(-10, 10, -2.5), new Vector3(10, 15, 2.5)))
+  tris.push(...boxTriangles(new Vector3(-10, -15, -2.5), new Vector3(10, -10, 2.5)))
+
+  return makeMesh('Letter D', tris)
+}
+
 export interface TestMeshOption {
   readonly id: string
   readonly label: string
@@ -113,4 +210,8 @@ export const TEST_MESHES: readonly TestMeshOption[] = [
   { id: 'pyramid', label: 'Asymmetric Pyramid (non-obvious optimum)', build: makeAsymmetricPyramidMesh },
   { id: 'tilted-slab', label: 'Tilted Slab (oblique optimum)', build: makeTiltedSlabMesh },
   { id: 'angled-wedge', label: 'Angled Wedge (oblique optimum)', build: makeAngledWedgeMesh },
+  { id: 'letter-u', label: 'Letter U (bridge overhang)', build: makeLetterUMesh },
+  { id: 'letter-n', label: 'Letter N (oblique diagonal)', build: makeLetterNMesh },
+  { id: 'letter-r', label: 'Letter R (overhang + oblique)', build: makeLetterRMesh },
+  { id: 'letter-d', label: 'Letter D (near-baseline block)', build: makeLetterDMesh },
 ]
