@@ -4,8 +4,8 @@ import { EA_PRESETS } from './EAConfig'
 import { makeLBracketMesh, makeTiltedSlabMesh, makeAngledWedgeMesh } from '../meshes/testMeshes'
 
 describe('createEngine', () => {
-  it('defaults to the projected-area (critical-angle-free) fitness strategy', () => {
-    expect(EA_PRESETS.fast.fitnessStrategy).toBe('projected-area')
+  it('defaults to the support-aware fitness strategy', () => {
+    expect(EA_PRESETS.fast.fitnessStrategy).toBe('support-aware')
   })
 
   it('runs an evolution loop end to end with the default strategy and improves or holds best score', () => {

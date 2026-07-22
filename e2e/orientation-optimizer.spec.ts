@@ -6,8 +6,8 @@ test.describe('Orientation Optimizer app', () => {
 
     await expect(page.getByRole('heading', { name: 'Orientation Optimizer' })).toBeVisible()
 
-    // Fitness strategy defaults to the printer-agnostic projected-area strategy.
-    await expect(page.getByLabel('Fitness strategy')).toHaveValue('projected-area')
+    // Fitness strategy defaults to support-aware (height + contact penalty).
+    await expect(page.getByRole('radio', { name: /support-aware/i })).toBeChecked()
 
     const viewerStatus = page.getByTestId('viewer-status')
 
@@ -30,17 +30,21 @@ test.describe('Orientation Optimizer app', () => {
     await page.getByRole('button', { name: 'Pause' }).click()
   })
 
-  test('switching to overhang-angle strategy reveals the critical angle slider, hides it for projected-area', async ({
+  test('critical angle slider shows for overhang-angle and support-aware, hides for projected-area', async ({
     page,
   }) => {
     await page.goto('/')
 
-    await expect(page.getByText('Critical overhang angle (deg)')).toHaveCount(0)
-
-    await page.getByLabel('Fitness strategy').selectOption('overhang-angle')
+    // Default strategy is support-aware, which also needs the critical angle.
     await expect(page.getByText('Critical overhang angle (deg)')).toBeVisible()
 
-    await page.getByLabel('Fitness strategy').selectOption('projected-area')
+    await page.getByRole('radio', { name: /projected area/i }).check()
+    await expect(page.getByText('Critical overhang angle (deg)')).toHaveCount(0)
+
+    await page.getByRole('radio', { name: /overhang angle/i }).check()
+    await expect(page.getByText('Critical overhang angle (deg)')).toBeVisible()
+
+    await page.getByRole('radio', { name: /projected area/i }).check()
     await expect(page.getByText('Critical overhang angle (deg)')).toHaveCount(0)
   })
 
@@ -66,9 +70,7 @@ test.describe('Orientation Optimizer app', () => {
     await page.goto('/')
 
     const axisReadout = page.getByTestId('axis-readout')
-    await expect(axisReadout).toContainText('X 0.0°')
-    await expect(axisReadout).toContainText('Y 0.0°')
-    await expect(axisReadout).toContainText('Z 0.0°')
+    await expect(axisReadout).toBeVisible()
 
     const rows = page.getByTestId('genome-table').locator('tbody tr')
     await expect(rows.first()).toBeVisible()

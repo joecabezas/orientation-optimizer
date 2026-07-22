@@ -34,16 +34,16 @@ export interface EAConfig {
   /** Max number of generations to run before stopping automatically. */
   readonly maxGenerations: number
   /**
-   * Which fitness strategy to score orientations with. 'projected-area' has no
-   * printer-specific threshold and is the recommended default: it minimizes
-   * total downward-facing area, which cannot rank orientations differently
-   * depending on a printer's overhang tolerance. 'overhang-angle' instead
-   * targets a specific printer's critical overhang angle, which can occasionally
-   * change which orientation ranks best (see criticalOverhangAngleDeg).
-   * 'support-aware' extends 'overhang-angle' with two effects angle alone
-   * misses: support columns cost more the higher up they reach, and support
-   * that lands on other mesh geometry (rather than the bed) is worse than
-   * support that lands on the plate.
+   * Which fitness strategy to score orientations with. 'support-aware' is the
+   * recommended default: it extends angle-based scoring with two effects angle
+   * alone misses — support columns cost more the higher up they reach, and
+   * support that lands on other mesh geometry (rather than the bed) is worse
+   * than support that lands on the plate. 'overhang-angle' targets a specific
+   * printer's critical overhang angle without those refinements, which can
+   * occasionally change which orientation ranks best (see
+   * criticalOverhangAngleDeg). 'projected-area' has no printer-specific
+   * threshold, minimizing total downward-facing area regardless of a
+   * printer's overhang tolerance.
    */
   readonly fitnessStrategy: FitnessStrategyName
   /**
