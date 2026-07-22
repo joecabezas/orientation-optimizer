@@ -118,8 +118,14 @@ export function ModelViewer({ mesh, rotation, tweenDurationMs }: ModelViewerProp
   return (
     <div className="relative min-h-0 flex-1 [&_canvas]:h-full!">
       <Canvas camera={{ position: [40, 40, 40], fov: 45 }} style={{ background: '#12151a' }}>
-        <ambientLight intensity={0.6} />
-        <directionalLight position={[30, 50, 20]} intensity={0.8} />
+        <ambientLight intensity={0.35} />
+        {/* Three lights from spread-out directions so every face normal gets
+            meaningful contrast from at least one of them — a single light
+            leaves every face pointing away from it flat-ambient-lit and
+            indistinguishable from its neighbors at some rotations. */}
+        <directionalLight position={[30, 50, 20]} intensity={0.75} />
+        <directionalLight position={[-40, 20, -30]} intensity={0.45} />
+        <directionalLight position={[10, -30, 35]} intensity={0.3} />
         <RotatingMesh mesh={mesh} targetRotation={rotation} tweenDurationMs={tweenDurationMs} />
         <RotatingAxisTriad targetRotation={rotation} tweenDurationMs={tweenDurationMs} />
         {/* Print bed reference, at y=0. RotatingMesh offsets the model each frame so its
