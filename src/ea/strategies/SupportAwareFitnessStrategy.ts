@@ -58,15 +58,56 @@ function rotateTriangle(tri: Triangle, rotation: Genome['rotation']): RotatedTri
 }
 
 /**
+ * True if (px, pz) lies inside (or on the boundary of) the 2D triangle
+ * (ax,az)-(bx,bz)-(cx,cz), via the standard same-sign-of-cross-product test.
+ */
+function pointInTriangle2D(
+  px: number,
+  pz: number,
+  ax: number,
+  az: number,
+  bx: number,
+  bz: number,
+  cx: number,
+  cz: number,
+): boolean {
+  const sign = (x1: number, z1: number, x2: number, z2: number, x3: number, z3: number) =>
+    (x1 - x3) * (z2 - z3) - (x2 - x3) * (z1 - z3)
+  const d1 = sign(px, pz, ax, az, bx, bz)
+  const d2 = sign(px, pz, bx, bz, cx, cz)
+  const d3 = sign(px, pz, cx, cz, ax, az)
+  const hasNeg = d1 < 0 || d2 < 0 || d3 < 0
+  const hasPos = d1 > 0 || d2 > 0 || d3 > 0
+  return !(hasNeg && hasPos)
+}
+
+/**
  * A coarse XZ heightmap used to tell, for a given downward-facing triangle,
  * whether the nearest surface beneath it is the build plate or other mesh
- * geometry. Built once per genome in a single O(n) pass over triangles, then
+ * geometry. Built once per genome in a single pass over triangles, then
  * queried once per triangle — avoids O(n^2) ray-triangle intersection while
  * still capturing "is this printed over open air down to the bed, or does it
  * land on top of an earlier part of the print."
+ *
+ * Each triangle is rasterized into every grid cell whose center falls inside
+ * it (not just the cell containing its centroid): a large, obliquely-cut
+ * triangle — e.g. one half of a box's flat top face, split diagonally —
+ * covers many cells whose centers sit far from its own centroid, and a
+ * downward face resting anywhere on that footprint needs to find it. This
+ * costs up to O(resolution^2) work for a single triangle spanning the whole
+ * grid, but real (finely tessellated) STL meshes have triangles that each
+ * cover only a handful of cells, so the practical cost stays close to linear
+ * in triangle count; only synthetic low-poly test geometry (a handful of
+ * large box faces) hits the worst case, and cheaply at that.
  */
+interface HeightmapEntry {
+  readonly height: number
+  /** Index of the source triangle in the `rotated` array, so a query can exclude its own entry. */
+  readonly index: number
+}
+
 class OcclusionHeightmap {
-  private readonly cells: number[][]
+  private readonly cells: HeightmapEntry[][]
   private readonly minX: number
   private readonly minZ: number
   private readonly cellWidth: number
@@ -98,9 +139,8 @@ class OcclusionHeightmap {
     this.cellDepth = spanZ / resolution
     this.cells = Array.from({ length: resolution * resolution }, () => [])
 
-    for (const tri of triangles) {
-      const { cx, cz } = this.cellOf(tri.centroidX, tri.centroidZ)
-      this.cells[cz * resolution + cx].push(tri.maxY)
+    for (let index = 0; index < triangles.length; index++) {
+      this.recordTriangle(triangles[index], index)
     }
   }
 
@@ -110,14 +150,52 @@ class OcclusionHeightmap {
     return { cx, cz }
   }
 
-  /** Highest recorded surface strictly below `belowY` at (x, z), or undefined if none. */
-  highestSurfaceBelow(x: number, z: number, belowY: number, epsilon: number): number | undefined {
+  /** Records `tri`'s height into every cell its footprint actually covers. */
+  private recordTriangle(tri: RotatedTriangle, index: number): void {
+    const triMinX = Math.min(tri.a.x, tri.b.x, tri.c.x)
+    const triMaxX = Math.max(tri.a.x, tri.b.x, tri.c.x)
+    const triMinZ = Math.min(tri.a.z, tri.b.z, tri.c.z)
+    const triMaxZ = Math.max(tri.a.z, tri.b.z, tri.c.z)
+    const { cx: cxMin, cz: czMin } = this.cellOf(triMinX, triMinZ)
+    const { cx: cxMax, cz: czMax } = this.cellOf(triMaxX, triMaxZ)
+
+    let recordedAny = false
+    for (let cz = czMin; cz <= czMax; cz++) {
+      for (let cx = cxMin; cx <= cxMax; cx++) {
+        const px = this.minX + (cx + 0.5) * this.cellWidth
+        const pz = this.minZ + (cz + 0.5) * this.cellDepth
+        if (pointInTriangle2D(px, pz, tri.a.x, tri.a.z, tri.b.x, tri.b.z, tri.c.x, tri.c.z)) {
+          this.cells[cz * this.resolution + cx].push({ height: tri.maxY, index })
+          recordedAny = true
+        }
+      }
+    }
+
+    // A triangle thinner than a single cell (or one that straddles cell
+    // boundaries such that no cell center happens to land inside it) would
+    // otherwise never get recorded anywhere. Fall back to its centroid's
+    // cell, which is always inside the triangle.
+    if (!recordedAny) {
+      const { cx, cz } = this.cellOf(tri.centroidX, tri.centroidZ)
+      this.cells[cz * this.resolution + cx].push({ height: tri.maxY, index })
+    }
+  }
+
+  /**
+   * Highest recorded surface at or below `belowY` (within `epsilon`, so a
+   * surface flush/coincident with the queried height counts as "there")
+   * at (x, z), or undefined if none. `excludeIndex` is the querying
+   * triangle's own index, so a face never detects its own recorded height
+   * as support beneath itself.
+   */
+  highestSurfaceBelow(x: number, z: number, belowY: number, epsilon: number, excludeIndex: number): number | undefined {
     const { cx, cz } = this.cellOf(x, z)
-    const heights = this.cells[cz * this.resolution + cx]
+    const entries = this.cells[cz * this.resolution + cx]
     let best: number | undefined
-    for (const h of heights) {
-      if (h < belowY - epsilon && (best === undefined || h > best)) {
-        best = h
+    for (const entry of entries) {
+      if (entry.index === excludeIndex) continue
+      if (entry.height <= belowY + epsilon && (best === undefined || entry.height > best)) {
+        best = entry.height
       }
     }
     return best
@@ -135,11 +213,13 @@ class OcclusionHeightmap {
  *    is other mesh geometry rather than the bed, the resulting support
  *    touches the model at both ends (worse to remove, worse finish on two
  *    faces) and is penalized above and beyond a same-angle, same-height face
- *    that would print straight onto the plate.
+ *    that would print straight onto the plate. A face resting flush (zero
+ *    real gap) on top of other mesh geometry needs no support at all,
+ *    exactly like resting flush on the bed — the penalty only applies when
+ *    there's a genuine gap for a support column to fill.
  *
  * Occlusion is approximated with a coarse XZ heightmap (see
- * OcclusionHeightmap) rather than true ray-triangle intersection, keeping
- * the whole pass O(n) in triangle count instead of O(n^2).
+ * OcclusionHeightmap) rather than true ray-triangle intersection.
  */
 export class SupportAwareFitnessStrategy implements FitnessStrategy {
   readonly name = 'support-aware'
@@ -217,14 +297,27 @@ export class SupportAwareFitnessStrategy implements FitnessStrategy {
       }
 
       const faceY = tri.minY
-      const heightWeight = 1 + (faceY - minY) / verticalExtent
 
-      // Any recorded surface strictly below this face (other than the bed
-      // itself, which lies at minY) means the support column touches mesh
-      // geometry, not just the plate.
-      const surfaceBelow = heightmap.highestSurfaceBelow(tri.centroidX, tri.centroidZ, faceY, epsilon)
-      const restsOnModel = surfaceBelow !== undefined
-      const occlusionMultiplier = restsOnModel ? modelOnModelPenalty : 1
+      // A recorded surface at or below this face (excluding this triangle's
+      // own entry, so a face never "detects" itself) means a support column
+      // reaching down from here would touch other mesh geometry rather than
+      // open air. When that surface sits flush against the face (within
+      // epsilon — zero real air gap) the face is already resting on solid
+      // printed material and needs no support at all, regardless of its
+      // angle, exactly like resting on the bed. Only a genuine gap (the
+      // surface meaningfully lower, beyond epsilon) still needs a support
+      // column, and that column lands on model geometry instead of the bed —
+      // the case modelOnModelPenalty accounts for.
+      const surfaceBelow = heightmap.highestSurfaceBelow(tri.centroidX, tri.centroidZ, faceY, epsilon, r)
+      const restsFlushOnModel = surfaceBelow !== undefined && surfaceBelow >= faceY - epsilon
+      if (restsFlushOnModel) {
+        totalArea += tri.area
+        continue
+      }
+
+      const heightWeight = 1 + (faceY - minY) / verticalExtent
+      const restsOnModelWithGap = surfaceBelow !== undefined
+      const occlusionMultiplier = restsOnModelWithGap ? modelOnModelPenalty : 1
 
       const contribution = angleSeverity * heightWeight * occlusionMultiplier * tri.area
       weightedScore += contribution

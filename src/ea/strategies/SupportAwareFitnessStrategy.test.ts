@@ -1,7 +1,9 @@
 import { describe, expect, it } from 'vitest'
-import { Vector3 } from 'three'
+import { Quaternion, Vector3 } from 'three'
 import { makeMesh, makeTriangle, Mesh } from '../../domain/mesh'
+import { makeGenome } from '../../domain/genome'
 import { boxTriangles } from '../../meshes/primitives'
+import { makeLBracketMesh } from '../../meshes/testMeshes'
 import { SupportAwareFitnessStrategy, DEFAULT_SUPPORT_AWARE_CONFIG } from './SupportAwareFitnessStrategy'
 import { identityGenome, meshFromFaces, normalAtAngleFromVertical, rotatedGenome } from './testFixtures'
 
@@ -24,16 +26,25 @@ function flatDownFacingQuad(y: number): Vector3[] {
  * smaller downward-facing shelf floating above it at y=2, directly over the
  * base's footprint. The shelf's underside should be classified as
  * model-on-model (it rests over the base, not open air down to the bed).
+ *
+ * The shelf is given a small but real thickness (top at y=2.1, underside at
+ * y=2) rather than the zero-thickness idealization it might otherwise be
+ * tempted to use: a literally coincident top/underside pair would let the
+ * shelf's own top face register in the same occlusion-heightmap cell as its
+ * underside at the exact same height, which is a degenerate "resting flush
+ * on itself" artifact, not a real gap — real printed geometry always has
+ * some thickness, so this keeps the fixture physically meaningful and keeps
+ * the two faces from colliding in the heightmap.
  */
 function tableMesh(): Mesh {
   const base = flatDownFacingQuad(0)
   const shelfTop = [
-    new Vector3(-1, 2, -1),
-    new Vector3(1, 2, 1),
-    new Vector3(1, 2, -1),
-    new Vector3(-1, 2, -1),
-    new Vector3(-1, 2, 1),
-    new Vector3(1, 2, 1),
+    new Vector3(-1, 2.1, -1),
+    new Vector3(1, 2.1, 1),
+    new Vector3(1, 2.1, -1),
+    new Vector3(-1, 2.1, -1),
+    new Vector3(-1, 2.1, 1),
+    new Vector3(1, 2.1, 1),
   ] // upward-facing top of the shelf, irrelevant to overhang scoring
   const shelfUnderside = flatDownFacingQuad(2)
   return makeMesh('table', [...base, ...shelfTop, ...shelfUnderside])
@@ -150,6 +161,56 @@ describe('SupportAwareFitnessStrategy', () => {
   it('normal-at-angle faces below critical angle score 0 regardless of height or occlusion setup', () => {
     const shallow = meshFromFaces([{ normal: normalAtAngleFromVertical(10), area: 1 }])
     expect(strategy.score(shallow, identityGenome())).toBeCloseTo(0, 3)
+  })
+
+  it('excludes a flat face resting flush on top of OTHER mesh geometry (zero gap), not just the bed', () => {
+    // A face made of two triangles, each covering half of a "shelf" at y=2,
+    // sitting directly on top of a separate "base" box whose own top surface
+    // is also at y=2 (zero real air gap) — unlike tableMesh's shelf, which
+    // floats 2 units above the base, this one touches with no clearance.
+    const base = boxTriangles(new Vector3(-1, 0, -1), new Vector3(1, 2, 1))
+    const shelfUnderside = flatDownFacingQuad(2)
+    const mesh = makeMesh('flush-on-model', [...base, ...shelfUnderside])
+    expect(strategy.score(mesh, identityGenome())).toBeCloseTo(0, 6)
+  })
+
+  it("regression: L-Bracket rotated 90deg about Z lands the arm end-cap flush on the post's rotated top face and needs no support there", () => {
+    // This is the concrete case the flush-on-model fix targets: a clean
+    // 90-degree-about-Z rotation puts the post's own -X face flush on the
+    // bed (already handled) and, separately, the arm's end-cap face flush
+    // on top of the post's newly-rotated top surface (a different triangle,
+    // from a different box, previously misclassified as a fully floating
+    // overhang). Before the fix this scored ~0.0357; it should now be ~0.
+    const mesh = makeLBracketMesh()
+    const genome = makeGenome(new Quaternion(0, 0, 0.7071067811865476, 0.7071067811865476))
+    expect(strategy.score(mesh, genome)).toBeCloseTo(0, 6)
+  })
+
+  it('still applies modelOnModelPenalty when a support column reaches down to other mesh geometry with a genuine gap (not flush)', () => {
+    const table = tableMesh()
+    const withPenalty = new SupportAwareFitnessStrategy({ ...DEFAULT_SUPPORT_AWARE_CONFIG, modelOnModelPenalty: 3 })
+    const withoutPenalty = new SupportAwareFitnessStrategy({ ...DEFAULT_SUPPORT_AWARE_CONFIG, modelOnModelPenalty: 1 })
+    expect(withPenalty.score(table, identityGenome())).toBeGreaterThan(withoutPenalty.score(table, identityGenome()))
+  })
+
+  it('scores a face floating in open air down to the bed as a plain overhang, and does not falsely detect it as flush-supported by its own recorded height', () => {
+    // The anchor (disjoint in X) establishes the mesh's global minY far away
+    // from the quad's own footprint, so the quad's bed-contact shortcut
+    // never fires and the heightmap-based flush/gap logic is the only thing
+    // that can classify it. Nothing else occupies the quad's own (x, z)
+    // footprint at any height, so the only entry the heightmap ever finds
+    // there is the quad's own two triangles — which must be excluded by
+    // index, or this would wrongly detect itself as "flush support" and
+    // collapse to 0.
+    const anchor = flatDownFacingQuad(0).map((v) => v.clone().add(new Vector3(-10, 0, 0)))
+    const quad = flatDownFacingQuad(5)
+    const mesh = makeMesh('floating', [...quad, ...anchor])
+    const score = strategy.score(mesh, identityGenome())
+    // angleSeverity = 1 (straight down), heightWeight = 1 + (5-0)/5 = 2,
+    // occlusionMultiplier = 1 (no model geometry below, open to the bed);
+    // anchor itself is bed-contact (contributes 0 to weightedScore).
+    // score = (1 * 2 * 1 * quadArea) / (quadArea + anchorArea) = (2*4)/(4+4) = 1
+    expect(score).toBeCloseTo(1, 6)
   })
 
   describe('explain', () => {
