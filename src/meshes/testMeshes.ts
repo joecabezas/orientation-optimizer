@@ -1,6 +1,6 @@
 import { Vector3 } from 'three'
 import { makeMesh, Mesh } from '../domain/mesh'
-import { boxTriangles, rotateAndTranslate, wedgeTriangles } from './primitives'
+import { boxTriangles, extrudeRingProfile, rotateAndTranslate, stadiumLoop, wedgeTriangles } from './primitives'
 
 /** A plain cube. Every orientation is roughly equivalent — useful as a sanity baseline. */
 export function makeCubeMesh(size = 10): Mesh {
@@ -176,25 +176,39 @@ export function makeLetterRMesh(): Mesh {
 }
 
 /**
- * A block letter "D": a full-height left stroke plus a rectangular loop on
- * the right (top, right full-height, bottom bars) closing back to the
- * left stroke — a simple squared-off outline, no rounding. The most
- * box-like and symmetric of the four letters, useful as a closer-to-
- * baseline sanity case relative to the more asymmetric N and R.
+ * A block letter "D": a flat vertical stroke on the left and a genuinely
+ * round bowl on the right, built as a "stadium" ring (see `stadiumLoop` /
+ * `extrudeRingProfile`) — a half-disk outline (radius 15, straight edge at
+ * x=-10) with a uniformly-inset (5-unit-thick) hole cut out, extruded to
+ * 5 units of depth. Unlike the other block letters, no face of the curved
+ * bowl is flat, so no axis-aligned rotation can rest the bowl overhang-free
+ * "for free" — the optimizer has to find the orientation (resting on the
+ * flat left stroke, or tipped so the curve's lowest tangent line is on the
+ * bed) that minimizes overhang along a continuously-varying surface instead
+ * of a handful of discrete flat faces.
  */
 export function makeLetterDMesh(): Mesh {
-  const tris: Vector3[] = []
+  const xLeft = -10
+  const outerRadius = 15
+  const strokeWidth = 5
+  const innerRadius = outerRadius - strokeWidth
+  const zMin = -2.5
+  const zMax = 2.5
+  const arcSamples = 15
 
-  // Left stroke: full height.
-  tris.push(...boxTriangles(new Vector3(-10, -15, -2.5), new Vector3(-5, 15, 2.5)))
+  // Outer boundary: straight edge at x=xLeft, semicircular arc (same center,
+  // radius outerRadius) bulging right — an exact half-disk.
+  const outer = stadiumLoop(xLeft, xLeft, outerRadius, arcSamples)
 
-  // Right bar: full height, closing the loop on the right.
-  tris.push(...boxTriangles(new Vector3(5, -15, -2.5), new Vector3(10, 15, 2.5)))
+  // Inner boundary (the hole): a uniform inward offset by strokeWidth — the
+  // arc keeps the same center but shrinks its radius (the correct offset of
+  // a circular arc), while the straight edge shifts right by strokeWidth;
+  // stadiumLoop's straightEdgeX/radius parametrization derives the resulting
+  // (shorter) arc span automatically, so the stroke has constant thickness
+  // and does not taper to a point anywhere along the boundary.
+  const inner = stadiumLoop(xLeft, xLeft + strokeWidth, innerRadius, arcSamples)
 
-  // Top and bottom bars, connecting the left stroke to the right bar.
-  tris.push(...boxTriangles(new Vector3(-10, 10, -2.5), new Vector3(10, 15, 2.5)))
-  tris.push(...boxTriangles(new Vector3(-10, -15, -2.5), new Vector3(10, -10, 2.5)))
-
+  const tris = extrudeRingProfile(outer, inner, zMin, zMax)
   return makeMesh('Letter D', tris)
 }
 
@@ -213,5 +227,5 @@ export const TEST_MESHES: readonly TestMeshOption[] = [
   { id: 'letter-u', label: 'Letter U (bridge overhang)', build: makeLetterUMesh },
   { id: 'letter-n', label: 'Letter N (oblique diagonal)', build: makeLetterNMesh },
   { id: 'letter-r', label: 'Letter R (overhang + oblique)', build: makeLetterRMesh },
-  { id: 'letter-d', label: 'Letter D (near-baseline block)', build: makeLetterDMesh },
+  { id: 'letter-d', label: 'Letter D (curved bowl)', build: makeLetterDMesh },
 ]
