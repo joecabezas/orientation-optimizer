@@ -69,4 +69,32 @@ describe('OverhangFitnessStrategy', () => {
     // while Y's 89deg face still counts against it.
     expect(lenientScores.x).toBeLessThan(lenientScores.y)
   })
+
+  describe('explain', () => {
+    const strategy = new OverhangFitnessStrategy()
+
+    it('returns one contribution per triangle, matching score() as their weighted average', () => {
+      const mesh = meshFromFaces([
+        { normal: new Vector3(0, -1, 0), area: 3 },
+        { normal: new Vector3(1, 0, 0), area: 5 },
+      ])
+      const genome = identityGenome()
+      const explanation = strategy.explain(mesh, genome)
+
+      expect(explanation.strategyName).toBe('overhang-angle')
+      expect(explanation.triangleContributions).toHaveLength(mesh.triangles.length)
+      expect(explanation.totalScore).toBeCloseTo(strategy.score(mesh, genome), 10)
+
+      // Only the straight-down face should contribute; the vertical wall shouldn't.
+      expect(explanation.triangleContributions[0]).toBeGreaterThan(0)
+      expect(explanation.triangleContributions[1]).toBeCloseTo(0, 6)
+    })
+
+    it('returns an empty contributions array for an empty mesh instead of throwing', () => {
+      const empty = meshFromFaces([])
+      const explanation = strategy.explain(empty, identityGenome())
+      expect(explanation.triangleContributions).toEqual([])
+      expect(explanation.totalScore).toBe(0)
+    })
+  })
 })

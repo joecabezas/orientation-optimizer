@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { Vector3 } from 'three'
-import { makeMesh, Mesh } from '../../domain/mesh'
+import { makeMesh, makeTriangle, Mesh } from '../../domain/mesh'
 import { boxTriangles } from '../../meshes/primitives'
 import { SupportAwareFitnessStrategy, DEFAULT_SUPPORT_AWARE_CONFIG } from './SupportAwareFitnessStrategy'
 import { identityGenome, meshFromFaces, normalAtAngleFromVertical, rotatedGenome } from './testFixtures'
@@ -150,5 +150,57 @@ describe('SupportAwareFitnessStrategy', () => {
   it('normal-at-angle faces below critical angle score 0 regardless of height or occlusion setup', () => {
     const shallow = meshFromFaces([{ normal: normalAtAngleFromVertical(10), area: 1 }])
     expect(strategy.score(shallow, identityGenome())).toBeCloseTo(0, 3)
+  })
+
+  describe('explain', () => {
+    it('returns one contribution per triangle, matching score() as their weighted average', () => {
+      const table = tableMesh()
+      const genome = identityGenome()
+      const explanation = strategy.explain(table, genome)
+
+      expect(explanation.strategyName).toBe('support-aware')
+      expect(explanation.triangleContributions).toHaveLength(table.triangles.length)
+      expect(explanation.totalScore).toBeCloseTo(strategy.score(table, genome), 10)
+    })
+
+    it('attributes the shelf underside triangles as the top contributors, not the base or shelf top', () => {
+      // tableMesh() is [base (2 tris), shelfTop (2 tris), shelfUnderside (2 tris)] in that
+      // order — the base rests on the bed (excluded) and the shelf top faces up (zero
+      // severity), so only the last two triangles (the shelf underside) should contribute.
+      const table = tableMesh()
+      const explanation = strategy.explain(table, identityGenome())
+
+      expect(explanation.triangleContributions[0]).toBeCloseTo(0, 6)
+      expect(explanation.triangleContributions[1]).toBeCloseTo(0, 6)
+      expect(explanation.triangleContributions[2]).toBeCloseTo(0, 6)
+      expect(explanation.triangleContributions[3]).toBeCloseTo(0, 6)
+      expect(explanation.triangleContributions[4]).toBeGreaterThan(0)
+      expect(explanation.triangleContributions[5]).toBeGreaterThan(0)
+    })
+
+    it('keeps contributions index-aligned with mesh.triangles when zero-area triangles are interspersed', () => {
+      // Degenerate (zero-area) triangle, skipped entirely by the strategy.
+      const zeroArea = makeTriangle(new Vector3(0, 0, 0), new Vector3(0, 0, 0), new Vector3(0, 0, 0))
+      // Anchor face at y=0, offset in X so it never occludes the elevated face
+      // below — establishes the mesh's true minY as a flat bed-contact face.
+      const anchor = makeTriangle(new Vector3(-11, 0, -1), new Vector3(-9, 0, -1), new Vector3(-9, 0, 1))
+      // Straight-down face elevated at y=5 — not the mesh's own minY (the anchor
+      // is), so it isn't excluded as bed contact and should contribute > 0.
+      const elevatedDownFace = makeTriangle(new Vector3(-1, 5, -1), new Vector3(1, 5, -1), new Vector3(1, 5, 1))
+      const mesh: Mesh = { name: 'mixed', triangles: [zeroArea, anchor, elevatedDownFace] }
+
+      const explanation = strategy.explain(mesh, identityGenome())
+      expect(explanation.triangleContributions).toHaveLength(3)
+      expect(explanation.triangleContributions[0]).toBe(0) // zero-area triangle, never touched
+      expect(explanation.triangleContributions[1]).toBeCloseTo(0, 6) // anchor rests on the bed
+      expect(explanation.triangleContributions[2]).toBeGreaterThan(0) // elevated, needs support
+    })
+
+    it('returns an empty contributions array for an empty mesh instead of throwing', () => {
+      const empty = makeMesh('empty', [])
+      const explanation = strategy.explain(empty, identityGenome())
+      expect(explanation.triangleContributions).toEqual([])
+      expect(explanation.totalScore).toBe(0)
+    })
   })
 })

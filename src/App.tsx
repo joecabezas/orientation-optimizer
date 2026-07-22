@@ -8,6 +8,8 @@ import { createEngine } from './ea/createEngine'
 import { EvolutionEngine, GenerationResult } from './ea/EvolutionEngine'
 import { TEST_MESHES } from './meshes/testMeshes'
 import { secondaryButtonClass } from './ui/buttonStyles'
+import { ScoreExplainerPopover } from './ui/components/ScoreExplainerPopover'
+import { buildScoreExplanation, ScoreExplanationSummary } from './ui/scoreExplanation'
 
 export default function App() {
   const [selectedMeshId, setSelectedMeshId] = useState(TEST_MESHES[1].id)
@@ -17,6 +19,7 @@ export default function App() {
   const [result, setResult] = useState<GenerationResult | null>(null)
   const [history, setHistory] = useState<FitnessHistoryPoint[]>([])
   const [selectedGenomeId, setSelectedGenomeId] = useState<string | undefined>(undefined)
+  const [scoreExplanation, setScoreExplanation] = useState<ScoreExplanationSummary | null>(null)
 
   const mesh = useMemo(() => {
     const option = TEST_MESHES.find((m) => m.id === selectedMeshId) ?? TEST_MESHES[0]
@@ -99,6 +102,23 @@ export default function App() {
   const displayedIndividual =
     (selectedGenomeId && result?.population.find((ind) => ind.genome.id === selectedGenomeId)) || result?.best
 
+  // Close the score explainer whenever the individual it's explaining stops
+  // being displayed (a new selection, or — while running with nothing
+  // selected — a new generation's best) rather than let it silently go stale.
+  useEffect(() => {
+    setScoreExplanation(null)
+  }, [displayedIndividual?.genome.id])
+
+  const handleToggleScoreExplainer = () => {
+    if (scoreExplanation) {
+      setScoreExplanation(null)
+      return
+    }
+    const strategy = engineRef.current?.fitnessStrategy
+    if (!displayedIndividual || !strategy) return
+    setScoreExplanation(buildScoreExplanation(mesh, displayedIndividual.genome, strategy) ?? null)
+  }
+
   return (
     <div className="flex h-full min-h-0 flex-col">
       <header className="flex items-baseline gap-2.5 border-b border-border-hairline bg-gradient-to-b from-surface-1 to-surface-0 px-5 py-2.5">
@@ -137,11 +157,21 @@ export default function App() {
                 <strong className="font-mono font-semibold text-text-primary">{result?.generation ?? 0}</strong> /{' '}
                 {config.maxGenerations}
               </span>
-              <span>
+              <span className="relative">
                 {selectedGenomeId ? 'Selected score' : 'Best score'}{' '}
-                <strong className="font-mono font-semibold text-text-primary">
+                <button
+                  type="button"
+                  data-testid="score-explainer-trigger"
+                  className="cursor-pointer rounded font-mono font-semibold text-text-primary underline decoration-text-muted decoration-dotted underline-offset-4 hover:text-accent disabled:cursor-default disabled:text-text-primary disabled:no-underline"
+                  onClick={handleToggleScoreExplainer}
+                  disabled={!displayedIndividual}
+                  aria-expanded={scoreExplanation !== null}
+                >
                   {displayedIndividual?.score.toFixed(4) ?? '-'}
-                </strong>
+                </button>
+                {scoreExplanation && (
+                  <ScoreExplainerPopover summary={scoreExplanation} onClose={() => setScoreExplanation(null)} />
+                )}
               </span>
               {engineRef.current?.isDone && (
                 <span className="ml-auto rounded-full bg-[rgba(28,175,122,0.15)] px-2.5 py-[3px] text-[11px] font-semibold tracking-[0.04em] text-[#1baf7a] uppercase">
@@ -159,6 +189,7 @@ export default function App() {
                 mesh={mesh}
                 rotation={displayedIndividual.genome.rotation}
                 tweenDurationMs={config.tweenDurationMs}
+                explainContributions={scoreExplanation?.normalizedContributions}
               />
             )}
           </div>
