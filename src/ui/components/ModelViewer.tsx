@@ -5,6 +5,7 @@ import { Group, Mesh as ThreeMesh, Quaternion, Vector3 } from 'three'
 import { Mesh, rotatedMinY } from '../../domain/mesh'
 import { genomeToEulerDegrees } from '../../domain/genome'
 import { meshToGeometry, updateStraightDownColors } from '../meshGeometry'
+import { CopyableValue } from './CopyableValue'
 
 interface RotatingMeshProps {
   readonly mesh: Mesh
@@ -136,17 +137,23 @@ export function ModelViewer({ mesh, rotation, tweenDurationMs }: ModelViewerProp
       </Canvas>
       <div
         data-testid="axis-readout"
-        className="pointer-events-none absolute bottom-3 left-4 flex gap-[14px] rounded-lg bg-[rgba(18,21,26,0.72)] px-3 py-1.5"
+        className="absolute bottom-3 left-4 rounded-lg bg-[rgba(18,21,26,0.72)] px-3 py-1.5"
       >
-        <span className="font-mono text-xs font-semibold" style={{ color: AXIS_COLORS.x }}>
-          X {euler.x.toFixed(1)}°
-        </span>
-        <span className="font-mono text-xs font-semibold" style={{ color: AXIS_COLORS.y }}>
-          Y {euler.y.toFixed(1)}°
-        </span>
-        <span className="font-mono text-xs font-semibold" style={{ color: AXIS_COLORS.z }}>
-          Z {euler.z.toFixed(1)}°
-        </span>
+        {/* This div is sized to just its own small badge, so making it (unlike before)
+            receive pointer events only affects clicks landing on the badge itself —
+            the rest of the canvas stays free for OrbitControls dragging. Clicking the
+            badge copies the raw Euler values to the clipboard. */}
+        <CopyableValue value={`${euler.x}, ${euler.y}, ${euler.z}`} className="flex gap-[14px]">
+          <span className="font-mono text-xs font-semibold" style={{ color: AXIS_COLORS.x }}>
+            X {euler.x.toFixed(1)}°
+          </span>
+          <span className="font-mono text-xs font-semibold" style={{ color: AXIS_COLORS.y }}>
+            Y {euler.y.toFixed(1)}°
+          </span>
+          <span className="font-mono text-xs font-semibold" style={{ color: AXIS_COLORS.z }}>
+            Z {euler.z.toFixed(1)}°
+          </span>
+        </CopyableValue>
       </div>
     </div>
   )

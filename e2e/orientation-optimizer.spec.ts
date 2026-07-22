@@ -91,7 +91,11 @@ test.describe('Orientation Optimizer app', () => {
     const eulerText = (await targetRow.locator('td').nth(3).textContent()) ?? ''
     const [ex, ey, ez] = eulerText.split(',').map((s) => s.trim())
 
-    await targetRow.click()
+    // Click the row's index cell rather than the row itself: the quaternion and Euler
+    // cells are now individually clickable to copy their raw values (stopping
+    // propagation so a copy click doesn't also reselect the row), so a click at the
+    // row's arbitrary center could otherwise land on one of those and no-op here.
+    await targetRow.locator('td').first().click()
     await expect(targetRow).toHaveAttribute('data-selected', 'true')
 
     // The viewer's status line should switch from "Best score" to "Selected score",

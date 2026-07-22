@@ -1,5 +1,6 @@
 import { Individual } from '../../domain/individual'
 import { genomeToEulerDegrees } from '../../domain/genome'
+import { CopyableValue } from './CopyableValue'
 
 interface GenomeTableProps {
   readonly population: readonly Individual[]
@@ -48,10 +49,14 @@ export function GenomeTable({ population, selectedGenomeId, onSelectGenome }: Ge
                 <td className={tdClass}>{i + 1}</td>
                 <td className={`${tdClass} font-mono`}>{ind.genome.id}</td>
                 <td className={`${tdClass} font-mono tabular-nums`}>
-                  {fmt(q.x)}, {fmt(q.y)}, {fmt(q.z)}, {fmt(q.w)}
+                  <CopyableValue value={`${q.x}, ${q.y}, ${q.z}, ${q.w}`} className="block">
+                    {fmt(q.x)}, {fmt(q.y)}, {fmt(q.z)}, {fmt(q.w)}
+                  </CopyableValue>
                 </td>
                 <td className={`${tdClass} font-mono tabular-nums`}>
-                  {fmt(e.x)}, {fmt(e.y)}, {fmt(e.z)}
+                  <CopyableValue value={`${e.x}, ${e.y}, ${e.z}`} className="block">
+                    {fmt(e.x)}, {fmt(e.y)}, {fmt(e.z)}
+                  </CopyableValue>
                 </td>
                 <td className={`${tdClass} font-mono tabular-nums`}>{ind.score.toFixed(4)}</td>
               </tr>
