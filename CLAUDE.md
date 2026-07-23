@@ -115,6 +115,6 @@ main.tsx             Vite entry point
 - When testing a visual change, do not run the app and take a screenshot —
   the user can verify a change faster themselves. If the user asks for an
   automatic check using screenshots, that's fine, but ask first.
-- `npm run test` (Vitest) and `npx tsc -b` are fast and safe to run freely.
-  `npm run lint` currently fails repo-wide (no `eslint.config.js` exists yet)
-  — this is a pre-existing gap, not something any one change is expected to fix.
+- `npm run test` (Vitest), `npx tsc -b`, and `npm run lint` (ESLint, flat
+  config in `eslint.config.js`) are all fast and safe to run freely — all
+  three should stay clean on `master`.

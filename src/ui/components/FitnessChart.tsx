@@ -5,6 +5,7 @@ import {
   LineChart,
   ResponsiveContainer,
   Tooltip,
+  TooltipProps,
   XAxis,
   YAxis,
 } from 'recharts'
@@ -22,16 +23,16 @@ interface FitnessChartProps {
 const COLOR_BEST = '#3987e5' // categorical slot 1 (blue), dark-mode step
 const COLOR_AVG = '#008300' // categorical slot 2 (green)
 
-function ChartTooltip({ active, payload, label }: any) {
+function ChartTooltip({ active, payload, label }: TooltipProps<number, string>) {
   if (!active || !payload?.length) return null
   return (
     <div className="rounded-md border border-border-hairline bg-surface-3 px-2.5 py-2 text-xs">
       <div className="mb-1 text-text-muted">Generation {label}</div>
-      {payload.map((entry: any) => (
+      {payload.map((entry) => (
         <div key={entry.dataKey} className="flex items-center gap-1.5 text-text-primary">
           <span className="h-2 w-2 rounded-sm" style={{ background: entry.color }} />
           <span>{entry.name}</span>
-          <span className="font-mono tabular-nums">{entry.value.toFixed(4)}</span>
+          <span className="font-mono tabular-nums">{Number(entry.value).toFixed(4)}</span>
         </div>
       ))}
     </div>
