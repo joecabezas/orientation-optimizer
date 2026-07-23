@@ -45,14 +45,14 @@ export function makeAsymmetricPyramidMesh(): Mesh {
   ]
 
   // Base (two triangles, facing down: -Y).
-  tris.push(corners[0], corners[2], corners[1])
-  tris.push(corners[0], corners[3], corners[2])
+  tris.push(corners[0], corners[1], corners[2])
+  tris.push(corners[0], corners[2], corners[3])
 
   // Four side faces, apex offset so faces have varying slopes.
   for (let i = 0; i < 4; i++) {
     const cA = corners[i]
     const cB = corners[(i + 1) % 4]
-    tris.push(cA, cB, apex)
+    tris.push(cA, apex, cB)
   }
 
   // A small overhanging shelf partway up one side (a thin box sticking out),
