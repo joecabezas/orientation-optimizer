@@ -20,6 +20,7 @@ export default function App() {
   const [history, setHistory] = useState<FitnessHistoryPoint[]>([])
   const [selectedGenomeId, setSelectedGenomeId] = useState<string | undefined>(undefined)
   const [scoreExplanation, setScoreExplanation] = useState<ScoreExplanationSummary | null>(null)
+  const [debugBackfaces, setDebugBackfaces] = useState(false)
 
   const mesh = useMemo(() => {
     const option = TEST_MESHES.find((m) => m.id === selectedMeshId) ?? TEST_MESHES[0]
@@ -173,6 +174,18 @@ export default function App() {
                   <ScoreExplainerPopover summary={scoreExplanation} onClose={() => setScoreExplanation(null)} />
                 )}
               </span>
+              <label
+                className="flex cursor-pointer items-center gap-1.5 text-[12px] text-text-secondary"
+                title="Colors genuine GPU back-facing fragments red (based on triangle winding, not compensated), to help spot triangles wound backwards."
+              >
+                <input
+                  type="checkbox"
+                  className="accent-accent"
+                  checked={debugBackfaces}
+                  onChange={(e) => setDebugBackfaces(e.target.checked)}
+                />
+                Show inverted normals
+              </label>
               {engineRef.current?.isDone && (
                 <span className="ml-auto rounded-full bg-[rgba(28,175,122,0.15)] px-2.5 py-[3px] text-[11px] font-semibold tracking-[0.04em] text-[#1baf7a] uppercase">
                   Done
@@ -190,6 +203,7 @@ export default function App() {
                 rotation={displayedIndividual.genome.rotation}
                 tweenDurationMs={config.tweenDurationMs}
                 explainContributions={scoreExplanation?.normalizedContributions}
+                debugBackfaces={debugBackfaces}
               />
             )}
           </div>

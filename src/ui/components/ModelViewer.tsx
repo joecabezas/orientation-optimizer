@@ -1,11 +1,50 @@
 import { useEffect, useMemo, useRef } from 'react'
 import { Canvas, useFrame } from '@react-three/fiber'
 import { Billboard, Grid, Line, OrbitControls, Text } from '@react-three/drei'
-import { Group, Mesh as ThreeMesh, Quaternion, Vector3 } from 'three'
+import { DoubleSide, Group, Mesh as ThreeMesh, Quaternion, Vector3 } from 'three'
 import { Mesh, rotatedMinY } from '../../domain/mesh'
 import { genomeToEulerDegrees } from '../../domain/genome'
 import { meshToGeometry, updateContributionColors, updateStraightDownColors } from '../meshGeometry'
 import { CopyableValue } from './CopyableValue'
+
+/**
+ * Debug shader for spotting inverted-winding triangles.
+ *
+ * `meshStandardMaterial` (used for normal rendering) auto-flips the shading
+ * normal for back-facing fragments so double-sided geometry always looks lit
+ * "correctly" from both sides — which is exactly why a triangle wound
+ * backwards doesn't visibly stand out today. This material does the opposite:
+ * it reads `gl_FrontFacing` (the GPU rasterizer's own front/back
+ * determination, driven purely by each triangle's winding order as seen from
+ * the camera) uncompensated, and paints back-facing fragments a flat warning
+ * red. Front-facing fragments get simple flat-ish shading (not the real PBR
+ * look) since this is a diagnostic view, not a final-appearance one.
+ *
+ * `side` is left DoubleSide (never culled) by the caller so both the "front"
+ * and "back" of every triangle still get rasterized and colored — the point
+ * is to distinguish them, not hide one.
+ */
+const BACKFACE_DEBUG_VERTEX_SHADER = /* glsl */ `
+  varying vec3 vNormal;
+  void main() {
+    vNormal = normalMatrix * normal;
+    gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+  }
+`
+
+const BACKFACE_DEBUG_FRAGMENT_SHADER = /* glsl */ `
+  varying vec3 vNormal;
+  void main() {
+    if (!gl_FrontFacing) {
+      gl_FragColor = vec4(0.92, 0.14, 0.16, 1.0);
+      return;
+    }
+    vec3 light = normalize(vec3(0.4, 0.85, 0.5));
+    float diffuse = max(dot(normalize(vNormal), light), 0.0);
+    vec3 base = vec3(0.32, 0.62, 0.42);
+    gl_FragColor = vec4(base * (0.4 + 0.6 * diffuse), 1.0);
+  }
+`
 
 interface RotatingMeshProps {
   readonly mesh: Mesh
@@ -19,9 +58,18 @@ interface RotatingMeshProps {
    * explainer popover is open.
    */
   readonly explainContributions?: readonly number[]
+  /**
+   * When true, replaces the normal vertex-color / PBR shading with the
+   * backface-debug shader above so genuinely-inverted-winding triangles
+   * (and, more benignly, genuinely-interior surfaces from overlapping
+   * box-union geometry) show up as flat red. Takes priority over
+   * `explainContributions` since they're both diagnostic overlays and
+   * showing both at once wouldn't be meaningful.
+   */
+  readonly debugBackfaces?: boolean
 }
 
-function RotatingMesh({ mesh, targetRotation, tweenDurationMs, explainContributions }: RotatingMeshProps) {
+function RotatingMesh({ mesh, targetRotation, tweenDurationMs, explainContributions, debugBackfaces }: RotatingMeshProps) {
   const meshRef = useRef<ThreeMesh>(null)
   const geometry = useMemo(() => meshToGeometry(mesh), [mesh])
 
@@ -50,7 +98,15 @@ function RotatingMesh({ mesh, targetRotation, tweenDurationMs, explainContributi
 
   return (
     <mesh ref={meshRef} geometry={geometry}>
-      <meshStandardMaterial vertexColors side={2} />
+      {debugBackfaces ? (
+        <shaderMaterial
+          side={DoubleSide}
+          vertexShader={BACKFACE_DEBUG_VERTEX_SHADER}
+          fragmentShader={BACKFACE_DEBUG_FRAGMENT_SHADER}
+        />
+      ) : (
+        <meshStandardMaterial vertexColors side={DoubleSide} />
+      )}
     </mesh>
   )
 }
@@ -125,9 +181,10 @@ interface ModelViewerProps {
   readonly rotation: Quaternion
   readonly tweenDurationMs: number
   readonly explainContributions?: readonly number[]
+  readonly debugBackfaces?: boolean
 }
 
-export function ModelViewer({ mesh, rotation, tweenDurationMs, explainContributions }: ModelViewerProps) {
+export function ModelViewer({ mesh, rotation, tweenDurationMs, explainContributions, debugBackfaces }: ModelViewerProps) {
   const euler = genomeToEulerDegrees({ id: '', rotation })
 
   return (
@@ -146,6 +203,7 @@ export function ModelViewer({ mesh, rotation, tweenDurationMs, explainContributi
           targetRotation={rotation}
           tweenDurationMs={tweenDurationMs}
           explainContributions={explainContributions}
+          debugBackfaces={debugBackfaces}
         />
         <RotatingAxisTriad targetRotation={rotation} tweenDurationMs={tweenDurationMs} />
         {/* Print bed reference, at y=0. RotatingMesh offsets the model each frame so its
