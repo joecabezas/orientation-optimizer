@@ -19,6 +19,13 @@ const IMPORTED_MESH_ID = 'imported'
 /** Shown as-imported/as-authored, before the EA has seeded any candidate rotation. */
 const IDENTITY_ROTATION = new Quaternion()
 
+/**
+ * Delay between generation steps while running, matched to ModelViewer's own
+ * tween duration so a new generation lands exactly when the previous tween
+ * finishes.
+ */
+const TWEEN_DURATION_MS = 200
+
 export default function App() {
   const [selectedMeshId, setSelectedMeshId] = useState(TEST_MESHES[1].id)
   const [preset, setPreset] = useState<PresetName>('fast')
@@ -93,12 +100,12 @@ export default function App() {
         ...prev,
         { generation: next.generation, bestScore: next.best.score, averageScore: next.averageScore },
       ])
-    }, config.tweenDurationMs)
+    }, TWEEN_DURATION_MS)
 
     return () => {
       if (timerRef.current !== null) window.clearTimeout(timerRef.current)
     }
-  }, [isRunning, result, config.tweenDurationMs, targetGeneration])
+  }, [isRunning, result, targetGeneration])
 
   const handlePresetChange = (name: PresetName) => {
     setPreset(name)
@@ -257,7 +264,6 @@ export default function App() {
             <ModelViewer
               mesh={mesh}
               rotation={displayedIndividual?.genome.rotation ?? IDENTITY_ROTATION}
-              tweenDurationMs={config.tweenDurationMs}
               explainContributions={scoreExplanation?.normalizedContributions}
               debugBackfaces={debugBackfaces}
               onImportFile={handleImportFile}

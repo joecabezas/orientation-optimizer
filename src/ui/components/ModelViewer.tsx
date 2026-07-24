@@ -46,10 +46,12 @@ const BACKFACE_DEBUG_FRAGMENT_SHADER = /* glsl */ `
   }
 `
 
+/** How long the viewer animates between one rotation and the next. */
+const TWEEN_DURATION_MS = 200
+
 interface RotatingMeshProps {
   readonly mesh: Mesh
   readonly targetRotation: Quaternion
-  readonly tweenDurationMs: number
   /**
    * When set, overrides the normal straight-down-face highlight with the
    * score explainer's contribution color ramp (index-aligned with
@@ -69,7 +71,7 @@ interface RotatingMeshProps {
   readonly debugBackfaces?: boolean
 }
 
-function RotatingMesh({ mesh, targetRotation, tweenDurationMs, explainContributions, debugBackfaces }: RotatingMeshProps) {
+function RotatingMesh({ mesh, targetRotation, explainContributions, debugBackfaces }: RotatingMeshProps) {
   const meshRef = useRef<ThreeMesh>(null)
   const geometry = useMemo(() => meshToGeometry(mesh), [mesh])
 
@@ -84,7 +86,7 @@ function RotatingMesh({ mesh, targetRotation, tweenDurationMs, explainContributi
     if (!meshRef.current) return
     const { from, to, startedAt } = tween.current
     const elapsed = performance.now() - startedAt
-    const t = tweenDurationMs <= 0 ? 1 : Math.min(1, elapsed / tweenDurationMs)
+    const t = Math.min(1, elapsed / TWEEN_DURATION_MS)
     meshRef.current.quaternion.copy(from).slerp(to, t)
     // Keep the mesh's lowest point resting on the bed (y=0) at every point
     // in the tween, not just at the tween's endpoints.
@@ -146,11 +148,10 @@ function AxisArrow({ direction, color, label }: AxisArrowProps) {
 
 interface RotatingAxisTriadProps {
   readonly targetRotation: Quaternion
-  readonly tweenDurationMs: number
 }
 
 /** The XYZ axis triad attached to (and tweening with) the currently displayed rotation. */
-function RotatingAxisTriad({ targetRotation, tweenDurationMs }: RotatingAxisTriadProps) {
+function RotatingAxisTriad({ targetRotation }: RotatingAxisTriadProps) {
   const groupRef = useRef<Group>(null)
   const tween = useRef({ from: new Quaternion(), to: targetRotation.clone(), startedAt: 0 })
 
@@ -163,7 +164,7 @@ function RotatingAxisTriad({ targetRotation, tweenDurationMs }: RotatingAxisTria
     if (!groupRef.current) return
     const { from, to, startedAt } = tween.current
     const elapsed = performance.now() - startedAt
-    const t = tweenDurationMs <= 0 ? 1 : Math.min(1, elapsed / tweenDurationMs)
+    const t = Math.min(1, elapsed / TWEEN_DURATION_MS)
     groupRef.current.quaternion.copy(from).slerp(to, t)
   })
 
@@ -179,7 +180,6 @@ function RotatingAxisTriad({ targetRotation, tweenDurationMs }: RotatingAxisTria
 interface ModelViewerProps {
   readonly mesh: Mesh
   readonly rotation: Quaternion
-  readonly tweenDurationMs: number
   readonly explainContributions?: readonly number[]
   readonly debugBackfaces?: boolean
   readonly onImportFile?: (file: File) => void
@@ -188,7 +188,6 @@ interface ModelViewerProps {
 export function ModelViewer({
   mesh,
   rotation,
-  tweenDurationMs,
   explainContributions,
   debugBackfaces,
   onImportFile,
@@ -244,11 +243,10 @@ export function ModelViewer({
         <RotatingMesh
           mesh={mesh}
           targetRotation={rotation}
-          tweenDurationMs={tweenDurationMs}
           explainContributions={explainContributions}
           debugBackfaces={debugBackfaces}
         />
-        <RotatingAxisTriad targetRotation={rotation} tweenDurationMs={tweenDurationMs} />
+        <RotatingAxisTriad targetRotation={rotation} />
         {/* Print bed reference, at y=0. RotatingMesh offsets the model each frame so its
             rotated lowest point always touches this plane, matching the fitness
             functions' bed-contact assumption. cellSize/sectionSize give a two-tier

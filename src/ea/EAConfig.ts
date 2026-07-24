@@ -53,8 +53,6 @@ export interface EAConfig {
    * need support. Used when fitnessStrategy is 'overhang-angle' or 'support-aware'.
    */
   readonly criticalOverhangAngleDeg: number
-  /** Milliseconds to animate the 3D view tweening to each new generation's best rotation. */
-  readonly tweenDurationMs: number
 }
 
 export type PresetName = 'fast' | 'medium' | 'best'
@@ -73,7 +71,6 @@ export const EA_PRESETS: Record<PresetName, EAConfig> = {
     mutationStrength: 0.5,
     fitnessStrategy: 'support-aware',
     criticalOverhangAngleDeg: 45,
-    tweenDurationMs: 200,
   },
   medium: {
     populationSize: 32,
@@ -88,7 +85,6 @@ export const EA_PRESETS: Record<PresetName, EAConfig> = {
     mutationStrength: 0.4,
     fitnessStrategy: 'projected-area',
     criticalOverhangAngleDeg: 45,
-    tweenDurationMs: 400,
   },
   best: {
     populationSize: 64,
@@ -103,6 +99,5 @@ export const EA_PRESETS: Record<PresetName, EAConfig> = {
     mutationStrength: 0.3,
     fitnessStrategy: 'projected-area',
     criticalOverhangAngleDeg: 45,
-    tweenDurationMs: 500,
   },
 }
