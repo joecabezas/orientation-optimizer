@@ -13,7 +13,7 @@ function fmt(n: number): string {
 }
 
 const thClass =
-  'sticky top-0 border-b border-border-hairline bg-surface-2 px-3 py-2 text-left text-[11px] font-semibold tracking-[0.04em] text-text-muted uppercase'
+  'sticky top-0 z-10 border-b border-border-hairline bg-surface-2 px-3 py-2 text-left text-[11px] font-semibold tracking-[0.04em] text-text-muted uppercase'
 
 export function GenomeTable({ population, selectedGenomeSeq, onSelectGenome }: GenomeTableProps) {
   return (
