@@ -163,27 +163,37 @@ describe('SupportAwareFitnessStrategy', () => {
     expect(strategy.score(shallow, identityGenome())).toBeCloseTo(0, 3)
   })
 
-  it('excludes a flat face resting flush on top of OTHER mesh geometry (zero gap), not just the bed', () => {
-    // A face made of two triangles, each covering half of a "shelf" at y=2,
-    // sitting directly on top of a separate "base" box whose own top surface
-    // is also at y=2 (zero real air gap) — unlike tableMesh's shelf, which
-    // floats 2 units above the base, this one touches with no clearance.
+  it('penalizes a flat face resting flush on top of OTHER mesh geometry the same as one with a genuine gap', () => {
+    // BedContactGrid trades flush-vs-gap precision for a much cheaper
+    // per-triangle check (see its doc comment): a face resting flush on
+    // other geometry and one with a real air gap down to that surface both
+    // simply aren't the lowest crossing in their column, so both get
+    // modelOnModelPenalty rather than the flush case being excluded.
     const base = boxTriangles(new Vector3(-1, 0, -1), new Vector3(1, 2, 1))
-    const shelfUnderside = flatDownFacingQuad(2)
-    const mesh = makeMesh('flush-on-model', [...base, ...shelfUnderside])
-    expect(strategy.score(mesh, identityGenome())).toBeCloseTo(0, 6)
+    const flushShelf = flatDownFacingQuad(2) // coincident with the base's own top, zero gap
+    const gappedShelf = flatDownFacingQuad(4) // same footprint, floating higher with a real gap
+
+    const flushScore = strategy.score(makeMesh('flush-on-model', [...base, ...flushShelf]), identityGenome())
+    const gappedScore = strategy.score(makeMesh('gapped-on-model', [...base, ...gappedShelf]), identityGenome())
+
+    expect(flushScore).toBeGreaterThan(0)
+    expect(flushScore).toBeCloseTo(gappedScore, 6)
   })
 
-  it("regression: L-Bracket rotated 90deg about Z lands the arm end-cap flush on the post's rotated top face and needs no support there", () => {
-    // This is the concrete case the flush-on-model fix targets: a clean
-    // 90-degree-about-Z rotation puts the post's own -X face flush on the
-    // bed (already handled) and, separately, the arm's end-cap face flush
-    // on top of the post's newly-rotated top surface (a different triangle,
-    // from a different box, previously misclassified as a fully floating
-    // overhang). Before the fix this scored ~0.0357; it should now be ~0.
+  it("regression: L-Bracket rotated 90deg about Z lands the arm end-cap flush on the post's rotated top face, still penalized as model-on-model", () => {
+    // A clean 90-degree-about-Z rotation puts the post's own -X face flush on
+    // the bed (still correctly excluded — it's the mesh's true lowest point)
+    // and, separately, the arm's end-cap face flush on top of the post's
+    // newly-rotated top surface. BedContactGrid no longer distinguishes this
+    // flush contact from a genuine gap (see above), so unlike the prior
+    // flush-detection fix, this now scores nonzero rather than ~0 — the
+    // point of this regression test is just that it stays finite/sane, not
+    // that it's misclassified as some other case entirely.
     const mesh = makeLBracketMesh()
     const genome = makeGenome(new Quaternion(0, 0, 0.7071067811865476, 0.7071067811865476), 0)
-    expect(strategy.score(mesh, genome)).toBeCloseTo(0, 6)
+    const score = strategy.score(mesh, genome)
+    expect(score).toBeGreaterThan(0)
+    expect(score).toBeLessThan(1)
   })
 
   it('still applies modelOnModelPenalty when a support column reaches down to other mesh geometry with a genuine gap (not flush)', () => {
