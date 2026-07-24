@@ -251,8 +251,34 @@ export function ModelViewer({
         <RotatingAxisTriad targetRotation={rotation} tweenDurationMs={tweenDurationMs} />
         {/* Print bed reference, at y=0. RotatingMesh offsets the model each frame so its
             rotated lowest point always touches this plane, matching the fitness
-            functions' bed-contact assumption. */}
-        <Grid args={[100, 100]} position={[0, 0, 0]} cellColor="#334" sectionColor="#556" fadeDistance={120} />
+            functions' bed-contact assumption. cellSize/sectionSize give a two-tier
+            grid (1-unit fine lines, 10-unit brighter major lines) scaled to the
+            test meshes (roughly 10-30 units across). infiniteGrid+followCamera re-centers
+            the (oversized, procedurally-tiled) plane under the camera every frame,
+            so its actual finite edge never enters view at any zoom/pan — unlike a
+            fixed-size plane, which always has an edge somewhere. fadeDistance sets
+            how far out that inflated plane extends (drei scales it by
+            1+fadeDistance): the default (100) put its edge within view, but pushing
+            it to something enormous (e.g. 10000) makes the plane so large relative
+            to this scene's scale (camera starts ~70 units out) that per-frame
+            floating-point precision in the followCamera re-centering visibly
+            jitters while orbiting, and depth-sorts unreliably against the model.
+            300 keeps the edge safely past any reasonable zoom without the
+            precision blow-up. */}
+        <Grid
+          args={[100, 100]}
+          position={[0, 0, 0]}
+          cellSize={1}
+          cellThickness={0.6}
+          cellColor="#4a5568"
+          sectionSize={10}
+          sectionThickness={0.8}
+          sectionColor="#7c8db5"
+          fadeStrength={1}
+          fadeDistance={800}
+          infiniteGrid
+          followCamera
+        />
         <OrbitControls />
       </Canvas>
       <div
