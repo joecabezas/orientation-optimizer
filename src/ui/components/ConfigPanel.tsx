@@ -1,3 +1,4 @@
+import { ChangeEvent, useRef } from 'react'
 import { EAConfig, EA_PRESETS, FitnessStrategyName, PresetName } from '../../ea/EAConfig'
 import { TestMeshOption } from '../../meshes/testMeshes'
 import { primaryButtonClass, secondaryButtonClass } from '../buttonStyles'
@@ -11,6 +12,8 @@ interface ConfigPanelProps {
   readonly testMeshes: readonly TestMeshOption[]
   readonly selectedMeshId: string
   readonly onMeshChange: (id: string) => void
+  readonly onImportFile: (file: File) => void
+  readonly importError: string | null
   readonly isRunning: boolean
   readonly onStart: () => void
   readonly onPause: () => void
@@ -118,12 +121,21 @@ export function ConfigPanel({
   testMeshes,
   selectedMeshId,
   onMeshChange,
+  onImportFile,
+  importError,
   isRunning,
   onStart,
   onPause,
   onReset,
 }: ConfigPanelProps) {
   const patch = (partial: Partial<EAConfig>) => onConfigChange({ ...config, ...partial })
+  const fileInputRef = useRef<HTMLInputElement>(null)
+
+  const handleFileInputChange = (e: ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    e.target.value = ''
+    if (file) onImportFile(file)
+  }
 
   return (
     <div className="flex flex-col gap-[22px]">
@@ -141,6 +153,18 @@ export function ConfigPanel({
             </option>
           ))}
         </select>
+        <input
+          ref={fileInputRef}
+          data-testid="stl-file-input"
+          type="file"
+          accept=".stl"
+          className="hidden"
+          onChange={handleFileInputChange}
+        />
+        <button className={secondaryButtonClass} onClick={() => fileInputRef.current?.click()}>
+          Import model…
+        </button>
+        {importError && <span className="text-[11px] text-red-400">{importError}</span>}
       </div>
 
       <div className="flex flex-col gap-2.5">

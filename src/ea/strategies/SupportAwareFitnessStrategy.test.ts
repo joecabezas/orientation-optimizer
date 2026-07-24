@@ -182,7 +182,7 @@ describe('SupportAwareFitnessStrategy', () => {
     // from a different box, previously misclassified as a fully floating
     // overhang). Before the fix this scored ~0.0357; it should now be ~0.
     const mesh = makeLBracketMesh()
-    const genome = makeGenome(new Quaternion(0, 0, 0.7071067811865476, 0.7071067811865476))
+    const genome = makeGenome(new Quaternion(0, 0, 0.7071067811865476, 0.7071067811865476), 0)
     expect(strategy.score(mesh, genome)).toBeCloseTo(0, 6)
   })
 

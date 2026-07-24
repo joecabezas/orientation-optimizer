@@ -8,7 +8,7 @@ import { FitnessStrategy } from '../ea/strategies/FitnessStrategy'
 import { buildScoreExplanation } from './scoreExplanation'
 
 function identityGenome() {
-  return makeGenome(new Quaternion())
+  return makeGenome(new Quaternion(), 0)
 }
 
 /** A mesh with a low, flat, bed-resting base and an elevated, straight-down, unsupported face. */

@@ -19,8 +19,8 @@ describe('DirectionalShellSeeding', () => {
     const seeding = new DirectionalShellSeeding(cube, ALL_OFF)
     const genomes = seeding.seed(10)
     expect(genomes).toHaveLength(10)
-    // No structural guarantee about randoms beyond count/uniqueness of ids.
-    expect(new Set(genomes.map((g) => g.id)).size).toBe(10)
+    // No structural guarantee about randoms beyond count/uniqueness of seqs.
+    expect(new Set(genomes.map((g) => g.seq)).size).toBe(10)
   })
 
   it('seeds exactly the 6 axis directions when only that source is enabled', () => {

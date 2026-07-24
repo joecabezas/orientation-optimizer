@@ -3,11 +3,11 @@ import { makeMesh, Mesh } from '../../domain/mesh'
 import { makeGenome } from '../../domain/genome'
 
 export function identityGenome() {
-  return makeGenome(new Quaternion())
+  return makeGenome(new Quaternion(), 0)
 }
 
 export function rotatedGenome(axis: Vector3, angleDeg: number) {
-  return makeGenome(new Quaternion().setFromAxisAngle(axis.clone().normalize(), (angleDeg * Math.PI) / 180))
+  return makeGenome(new Quaternion().setFromAxisAngle(axis.clone().normalize(), (angleDeg * Math.PI) / 180), 0)
 }
 
 /**

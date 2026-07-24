@@ -6,6 +6,6 @@ export class RandomSeeding implements SeedingStrategy {
   readonly name = 'random'
 
   seed(populationSize: number): Genome[] {
-    return Array.from({ length: populationSize }, () => makeGenome(randomQuaternion()))
+    return Array.from({ length: populationSize }, () => makeGenome(randomQuaternion(), 0))
   }
 }

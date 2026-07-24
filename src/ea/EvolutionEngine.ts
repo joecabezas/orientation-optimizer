@@ -1,5 +1,5 @@
 import { Mesh } from '../domain/mesh'
-import { Genome } from '../domain/genome'
+import { Genome, makeGenome, quaternionsExactlyEqual } from '../domain/genome'
 import { Individual } from '../domain/individual'
 import { EAConfig } from './EAConfig'
 import { FitnessStrategy } from './strategies/FitnessStrategy'
@@ -7,6 +7,10 @@ import { SeedingStrategy } from './strategies/SeedingStrategy'
 import { SelectionStrategy } from './strategies/SelectionStrategy'
 import { CrossoverStrategy } from './strategies/CrossoverStrategy'
 import { MutationStrategy } from './strategies/MutationStrategy'
+import { randomQuaternion } from './strategies/DirectionalShellSeeding'
+
+/** Retries a duplicate child this many times before giving up and injecting a random rotation. */
+const MAX_BREED_ATTEMPTS = 8
 
 export interface EvolutionStrategies {
   readonly fitness: FitnessStrategy
@@ -51,22 +55,65 @@ export class EvolutionEngine {
   step(): GenerationResult {
     const sorted = [...this.population].sort((a, b) => a.score - b.score)
     const eliteCount = Math.max(1, Math.round(this.config.elitismFraction * this.config.populationSize))
-    const elites = sorted.slice(0, eliteCount).map((ind) => ind.genome)
+    const elites = this.selectDistinctElites(sorted, eliteCount)
+    const nextGeneration = this.generation + 1
 
     const children: Genome[] = [...elites]
     while (children.length < this.config.populationSize) {
-      const parentA = this.strategies.selection.selectParent(sorted)
-      const parentB = this.strategies.selection.selectParent(sorted)
-      let child = this.strategies.crossover.crossover(parentA.genome, parentB.genome)
-      if (Math.random() < this.config.mutationProbability) {
-        child = this.strategies.mutation.mutate(child, this.config.mutationStrength)
-      }
-      children.push(child)
+      children.push(this.breedDistinctChild(sorted, children, nextGeneration))
     }
 
     this.population = this.evaluate(children)
-    this.generation += 1
+    this.generation = nextGeneration
     return this.currentResult()
+  }
+
+  /**
+   * Elitism should carry forward the population's best *distinct* rotations,
+   * not just its best-scoring individuals: once the population converges,
+   * many top scorers are literal duplicates of each other (the exact same
+   * quaternion, just with a fresh seq/generation from crossover/mutation),
+   * and blindly taking the top `eliteCount` would carry several copies of one rotation
+   * forward as "elites" instead of preserving genuinely distinct candidates.
+   * Orientations that are merely close, not exactly equal, are left alone.
+   */
+  private selectDistinctElites(sorted: readonly Individual[], eliteCount: number): Genome[] {
+    const elites: Genome[] = []
+    for (const individual of sorted) {
+      if (elites.length >= eliteCount) break
+      if (!elites.some((g) => quaternionsExactlyEqual(g.rotation, individual.genome.rotation))) {
+        elites.push(individual.genome)
+      }
+    }
+    return elites
+  }
+
+  /**
+   * Breeds one child distinct (by rotation, not id) from every genome already
+   * accepted into the next generation. Crossing over a parent with itself (or
+   * with an exact duplicate of itself) reproduces that same rotation exactly,
+   * so a plain crossover/mutate pass can otherwise fill the population with
+   * duplicate quaternions under different genome seqs, which then keep
+   * crossing over with each other and never actually explore new
+   * orientations. Retries force a mutation — even if the probability roll
+   * didn't call for one — so a repeat duplicate gets a real chance to
+   * diverge; if it's still stuck after a few tries, injects a fresh random
+   * rotation instead of giving up. Children that are merely close to an
+   * existing genome, not exactly equal, are accepted as-is.
+   */
+  private breedDistinctChild(sorted: readonly Individual[], existing: readonly Genome[], generation: number): Genome {
+    for (let attempt = 0; attempt < MAX_BREED_ATTEMPTS; attempt++) {
+      const parentA = this.strategies.selection.selectParent(sorted)
+      const parentB = this.strategies.selection.selectParent(sorted)
+      let child = this.strategies.crossover.crossover(parentA.genome, parentB.genome, generation)
+      if (attempt > 0 || Math.random() < this.config.mutationProbability) {
+        child = this.strategies.mutation.mutate(child, this.config.mutationStrength, generation)
+      }
+      if (!existing.some((g) => quaternionsExactlyEqual(g.rotation, child.rotation))) {
+        return child
+      }
+    }
+    return makeGenome(randomQuaternion(), generation)
   }
 
   get currentGeneration(): number {

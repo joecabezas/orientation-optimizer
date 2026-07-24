@@ -87,7 +87,7 @@ describe('topFaceDirections', () => {
 
     const [dir] = topFaceDirections(mesh, 1)
     const rotation = rotationPointingUp(dir)
-    const genome = makeGenome(rotation)
+    const genome = makeGenome(rotation, 0)
 
     // After rotating so the quad's own resting direction points up, the quad
     // (the largest face) should be the one resting at the mesh's new minY —

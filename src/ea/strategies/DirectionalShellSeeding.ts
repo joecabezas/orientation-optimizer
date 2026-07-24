@@ -55,10 +55,10 @@ export class DirectionalShellSeeding implements SeedingStrategy {
       return true
     })
 
-    const genomes: Genome[] = deduped.slice(0, populationSize).map((dir) => makeGenome(rotationPointingUp(dir)))
+    const genomes: Genome[] = deduped.slice(0, populationSize).map((dir) => makeGenome(rotationPointingUp(dir), 0))
 
     while (genomes.length < populationSize) {
-      genomes.push(makeGenome(randomQuaternion()))
+      genomes.push(makeGenome(randomQuaternion(), 0))
     }
 
     return genomes

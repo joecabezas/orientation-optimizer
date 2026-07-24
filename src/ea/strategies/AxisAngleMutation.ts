@@ -14,7 +14,7 @@ export class AxisAngleMutation implements MutationStrategy {
 
   constructor(private readonly maxAngleDeg: number = 30) {}
 
-  mutate(genome: Genome, mutationStrength: number): Genome {
+  mutate(genome: Genome, mutationStrength: number, generation: number): Genome {
     const axis = new Vector3(Math.random() * 2 - 1, Math.random() * 2 - 1, Math.random() * 2 - 1)
     if (axis.lengthSq() < 1e-9) axis.set(1, 0, 0)
     axis.normalize()
@@ -24,6 +24,6 @@ export class AxisAngleMutation implements MutationStrategy {
     const delta = new Quaternion().setFromAxisAngle(axis, angleRad)
 
     const mutated = genome.rotation.clone().multiply(delta)
-    return makeGenome(mutated)
+    return makeGenome(mutated, generation)
   }
 }

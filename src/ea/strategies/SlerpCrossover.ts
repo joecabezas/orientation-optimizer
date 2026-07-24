@@ -10,9 +10,9 @@ import { CrossoverStrategy } from './CrossoverStrategy'
 export class SlerpCrossover implements CrossoverStrategy {
   readonly name = 'slerp'
 
-  crossover(parentA: Genome, parentB: Genome): Genome {
+  crossover(parentA: Genome, parentB: Genome, generation: number): Genome {
     const t = Math.random()
     const child = new Quaternion().copy(parentA.rotation).slerp(parentB.rotation, t)
-    return makeGenome(child)
+    return makeGenome(child, generation)
   }
 }

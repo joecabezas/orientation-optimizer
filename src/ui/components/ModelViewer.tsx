@@ -1,9 +1,9 @@
-import { useEffect, useMemo, useRef } from 'react'
+import { DragEvent, useEffect, useMemo, useRef, useState } from 'react'
 import { Canvas, useFrame } from '@react-three/fiber'
 import { Billboard, Grid, Line, OrbitControls, Text } from '@react-three/drei'
 import { DoubleSide, Group, Mesh as ThreeMesh, Quaternion, Vector3 } from 'three'
 import { Mesh, rotatedMinY } from '../../domain/mesh'
-import { genomeToEulerDegrees } from '../../domain/genome'
+import { rotationToEulerDegrees } from '../../domain/genome'
 import { meshToGeometry, updateContributionColors, updateStraightDownColors } from '../meshGeometry'
 import { CopyableValue } from './CopyableValue'
 
@@ -182,13 +182,56 @@ interface ModelViewerProps {
   readonly tweenDurationMs: number
   readonly explainContributions?: readonly number[]
   readonly debugBackfaces?: boolean
+  readonly onImportFile?: (file: File) => void
 }
 
-export function ModelViewer({ mesh, rotation, tweenDurationMs, explainContributions, debugBackfaces }: ModelViewerProps) {
-  const euler = genomeToEulerDegrees({ id: '', rotation })
+export function ModelViewer({
+  mesh,
+  rotation,
+  tweenDurationMs,
+  explainContributions,
+  debugBackfaces,
+  onImportFile,
+}: ModelViewerProps) {
+  const euler = rotationToEulerDegrees(rotation)
+  const [isDragActive, setIsDragActive] = useState(false)
+  const dragCounter = useRef(0)
+
+  const hasFiles = (e: DragEvent) => Array.from(e.dataTransfer.types).includes('Files')
+
+  const handleDragEnter = (e: DragEvent) => {
+    e.preventDefault()
+    if (!hasFiles(e)) return
+    dragCounter.current += 1
+    setIsDragActive(true)
+  }
+
+  const handleDragOver = (e: DragEvent) => {
+    if (hasFiles(e)) e.preventDefault()
+  }
+
+  const handleDragLeave = (e: DragEvent) => {
+    e.preventDefault()
+    dragCounter.current = Math.max(0, dragCounter.current - 1)
+    if (dragCounter.current === 0) setIsDragActive(false)
+  }
+
+  const handleDrop = (e: DragEvent) => {
+    e.preventDefault()
+    dragCounter.current = 0
+    setIsDragActive(false)
+    const file = e.dataTransfer.files?.[0]
+    if (file) onImportFile?.(file)
+  }
 
   return (
-    <div className="relative min-h-0 flex-1 [&_canvas]:h-full!">
+    <div
+      className="relative min-h-0 flex-1 [&_canvas]:h-full!"
+      onDragEnter={handleDragEnter}
+      onDragOver={handleDragOver}
+      onDragLeave={handleDragLeave}
+      onDrop={handleDrop}
+    >
       <Canvas camera={{ position: [40, 40, 40], fov: 45 }} style={{ background: '#12151a' }}>
         <ambientLight intensity={0.35} />
         {/* Three lights from spread-out directions so every face normal gets
@@ -232,6 +275,14 @@ export function ModelViewer({ mesh, rotation, tweenDurationMs, explainContributi
           </span>
         </CopyableValue>
       </div>
+      {isDragActive && (
+        <div
+          data-testid="stl-drop-overlay"
+          className="pointer-events-none absolute inset-0 flex items-center justify-center border-2 border-dashed border-accent bg-[rgba(18,21,26,0.82)]"
+        >
+          <span className="font-display text-sm font-semibold text-text-primary">Drop STL file to import</span>
+        </div>
+      )}
     </div>
   )
 }

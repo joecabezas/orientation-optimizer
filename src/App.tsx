@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
+import { Quaternion } from 'three'
 import { ModelViewer } from './ui/components/ModelViewer'
 import { GenomeTable } from './ui/components/GenomeTable'
 import { FitnessChart, FitnessHistoryPoint } from './ui/components/FitnessChart'
@@ -6,10 +7,17 @@ import { ConfigPanel } from './ui/components/ConfigPanel'
 import { EAConfig, EA_PRESETS, PresetName } from './ea/EAConfig'
 import { createEngine } from './ea/createEngine'
 import { EvolutionEngine, GenerationResult } from './ea/EvolutionEngine'
-import { TEST_MESHES } from './meshes/testMeshes'
+import { TEST_MESHES, TestMeshOption } from './meshes/testMeshes'
+import { importMeshFile } from './meshes/import/meshImporters'
+import { Mesh } from './domain/mesh'
 import { secondaryButtonClass } from './ui/buttonStyles'
 import { ScoreExplainerPopover } from './ui/components/ScoreExplainerPopover'
 import { buildScoreExplanation, ScoreExplanationSummary } from './ui/scoreExplanation'
+
+const IMPORTED_MESH_ID = 'imported'
+
+/** Shown as-imported/as-authored, before the EA has seeded any candidate rotation. */
+const IDENTITY_ROTATION = new Quaternion()
 
 export default function App() {
   const [selectedMeshId, setSelectedMeshId] = useState(TEST_MESHES[1].id)
@@ -18,37 +26,49 @@ export default function App() {
   const [isRunning, setIsRunning] = useState(false)
   const [result, setResult] = useState<GenerationResult | null>(null)
   const [history, setHistory] = useState<FitnessHistoryPoint[]>([])
-  const [selectedGenomeId, setSelectedGenomeId] = useState<string | undefined>(undefined)
+  const [selectedGenomeSeq, setSelectedGenomeSeq] = useState<number | undefined>(undefined)
   const [scoreExplanation, setScoreExplanation] = useState<ScoreExplanationSummary | null>(null)
   const [debugBackfaces, setDebugBackfaces] = useState(false)
+  const [importedMesh, setImportedMesh] = useState<Mesh | null>(null)
+  const [importError, setImportError] = useState<string | null>(null)
+
+  const meshOptions: readonly TestMeshOption[] = useMemo(() => {
+    if (!importedMesh) return TEST_MESHES
+    return [{ id: IMPORTED_MESH_ID, label: importedMesh.name, build: () => importedMesh }, ...TEST_MESHES]
+  }, [importedMesh])
 
   const mesh = useMemo(() => {
-    const option = TEST_MESHES.find((m) => m.id === selectedMeshId) ?? TEST_MESHES[0]
+    const option = meshOptions.find((m) => m.id === selectedMeshId) ?? meshOptions[0]
     return option.build()
-  }, [selectedMeshId])
+  }, [meshOptions, selectedMeshId])
 
   const engineRef = useRef<EvolutionEngine | null>(null)
   const timerRef = useRef<number | null>(null)
   const engineConfigRef = useRef<EAConfig | null>(null)
+  // Whether engineRef's generation 0 has been seeded/evaluated yet. A ref (not
+  // state) so handleStart can check it synchronously right after prepareEngine.
+  const startedRef = useRef(false)
 
-  const resetEngine = () => {
+  /** Builds a fresh (unseeded) engine for the current mesh/config, without running it. */
+  const prepareEngine = () => {
     if (timerRef.current !== null) {
       window.clearTimeout(timerRef.current)
       timerRef.current = null
     }
     setIsRunning(false)
-    const engine = createEngine(mesh, config)
-    engineRef.current = engine
+    engineRef.current = createEngine(mesh, config)
     engineConfigRef.current = config
-    const first = engine.start()
-    setResult(first)
-    setHistory([{ generation: first.generation, bestScore: first.best.score, averageScore: first.averageScore }])
-    setSelectedGenomeId(undefined)
+    startedRef.current = false
+    setResult(null)
+    setHistory([])
+    setSelectedGenomeSeq(undefined)
   }
 
-  // Rebuild the engine whenever the mesh changes.
+  // Rebuild the engine whenever the mesh changes, but don't seed/evaluate it yet —
+  // the viewer should show the mesh in its original (as-imported) orientation
+  // until the user presses Start.
   useEffect(() => {
-    resetEngine()
+    prepareEngine()
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [mesh])
 
@@ -86,29 +106,51 @@ export default function App() {
 
   const handleStart = () => {
     const configChanged = !engineRef.current || engineConfigRef.current !== config
-    if (configChanged) resetEngine()
+    if (configChanged) prepareEngine()
+    if (!startedRef.current) {
+      const engine = engineRef.current!
+      const first = engine.start()
+      startedRef.current = true
+      setResult(first)
+      setHistory([{ generation: first.generation, bestScore: first.best.score, averageScore: first.averageScore }])
+    }
     setIsRunning(true)
   }
 
   const handlePause = () => setIsRunning(false)
 
-  const handleReset = () => resetEngine()
+  const handleReset = () => prepareEngine()
 
-  const handleMeshChange = (id: string) => setSelectedMeshId(id)
+  const handleMeshChange = (id: string) => {
+    if (id !== IMPORTED_MESH_ID) setImportedMesh(null)
+    setSelectedMeshId(id)
+  }
 
-  const handleSelectGenome = (genomeId: string) => {
-    setSelectedGenomeId((prev) => (prev === genomeId ? undefined : genomeId))
+  const handleImportFile = async (file: File) => {
+    try {
+      const parsed = await importMeshFile(file)
+      setImportError(null)
+      setImportedMesh(parsed)
+      setSelectedMeshId(IMPORTED_MESH_ID)
+    } catch (err) {
+      setImportError(err instanceof Error ? err.message : String(err))
+    }
+  }
+
+  const handleSelectGenome = (genomeSeq: number) => {
+    setSelectedGenomeSeq((prev) => (prev === genomeSeq ? undefined : genomeSeq))
   }
 
   const displayedIndividual =
-    (selectedGenomeId && result?.population.find((ind) => ind.genome.id === selectedGenomeId)) || result?.best
+    (selectedGenomeSeq !== undefined && result?.population.find((ind) => ind.genome.seq === selectedGenomeSeq)) ||
+    result?.best
 
   // Close the score explainer whenever the individual it's explaining stops
   // being displayed (a new selection, or — while running with nothing
   // selected — a new generation's best) rather than let it silently go stale.
   useEffect(() => {
     setScoreExplanation(null)
-  }, [displayedIndividual?.genome.id])
+  }, [displayedIndividual?.genome.seq])
 
   const handleToggleScoreExplainer = () => {
     if (scoreExplanation) {
@@ -137,9 +179,11 @@ export default function App() {
             activePreset={preset}
             onPresetChange={handlePresetChange}
             onConfigChange={handleConfigChange}
-            testMeshes={TEST_MESHES}
+            testMeshes={meshOptions}
             selectedMeshId={selectedMeshId}
             onMeshChange={handleMeshChange}
+            onImportFile={handleImportFile}
+            importError={importError}
             isRunning={isRunning}
             onStart={handleStart}
             onPause={handlePause}
@@ -159,7 +203,7 @@ export default function App() {
                 {config.maxGenerations}
               </span>
               <span className="relative">
-                {selectedGenomeId ? 'Selected score' : 'Best score'}{' '}
+                {selectedGenomeSeq !== undefined ? 'Selected score' : 'Best score'}{' '}
                 <button
                   type="button"
                   data-testid="score-explainer-trigger"
@@ -191,21 +235,20 @@ export default function App() {
                   Done
                 </span>
               )}
-              {selectedGenomeId && (
-                <button className={secondaryButtonClass} onClick={() => setSelectedGenomeId(undefined)}>
+              {selectedGenomeSeq !== undefined && (
+                <button className={secondaryButtonClass} onClick={() => setSelectedGenomeSeq(undefined)}>
                   Follow best
                 </button>
               )}
             </div>
-            {displayedIndividual && (
-              <ModelViewer
-                mesh={mesh}
-                rotation={displayedIndividual.genome.rotation}
-                tweenDurationMs={config.tweenDurationMs}
-                explainContributions={scoreExplanation?.normalizedContributions}
-                debugBackfaces={debugBackfaces}
-              />
-            )}
+            <ModelViewer
+              mesh={mesh}
+              rotation={displayedIndividual?.genome.rotation ?? IDENTITY_ROTATION}
+              tweenDurationMs={config.tweenDurationMs}
+              explainContributions={scoreExplanation?.normalizedContributions}
+              debugBackfaces={debugBackfaces}
+              onImportFile={handleImportFile}
+            />
           </div>
 
           <div className="flex min-h-0 min-w-0 flex-1 gap-5">
@@ -216,7 +259,7 @@ export default function App() {
               <div className="min-h-0 min-w-0 flex-1">
                 <GenomeTable
                   population={result.population}
-                  selectedGenomeId={selectedGenomeId ?? result.best.genome.id}
+                  selectedGenomeSeq={selectedGenomeSeq ?? result.best.genome.seq}
                   onSelectGenome={handleSelectGenome}
                 />
               </div>
