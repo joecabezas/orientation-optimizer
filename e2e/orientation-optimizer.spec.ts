@@ -15,7 +15,7 @@ test.describe('Orientation Optimizer app', () => {
     await expect(viewerStatus).toContainText('Generation')
     await expect(viewerStatus).toContainText('0')
 
-    await page.getByRole('button', { name: 'Start' }).click()
+    await page.getByRole('button', { name: '+10' }).click()
 
     // Generation should advance past 0 once the run is going.
     await page.waitForFunction(

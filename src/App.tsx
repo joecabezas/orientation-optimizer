@@ -24,6 +24,10 @@ export default function App() {
   const [preset, setPreset] = useState<PresetName>('fast')
   const [config, setConfig] = useState<EAConfig>(EA_PRESETS.fast)
   const [isRunning, setIsRunning] = useState(false)
+  // How many generations the engine should step to before auto-pausing. There
+  // is no upfront "max" — this starts at 0 and only the "+N generations"
+  // buttons raise it, each bump resuming the run toward the new target.
+  const [targetGeneration, setTargetGeneration] = useState(0)
   const [result, setResult] = useState<GenerationResult | null>(null)
   const [history, setHistory] = useState<FitnessHistoryPoint[]>([])
   const [selectedGenomeSeq, setSelectedGenomeSeq] = useState<number | undefined>(undefined)
@@ -46,7 +50,7 @@ export default function App() {
   const timerRef = useRef<number | null>(null)
   const engineConfigRef = useRef<EAConfig | null>(null)
   // Whether engineRef's generation 0 has been seeded/evaluated yet. A ref (not
-  // state) so handleStart can check it synchronously right after prepareEngine.
+  // state) so handleAdvance can check it synchronously right after prepareEngine.
   const startedRef = useRef(false)
 
   /** Builds a fresh (unseeded) engine for the current mesh/config, without running it. */
@@ -62,6 +66,7 @@ export default function App() {
     setResult(null)
     setHistory([])
     setSelectedGenomeSeq(undefined)
+    setTargetGeneration(0)
   }
 
   // Rebuild the engine whenever the mesh changes, but don't seed/evaluate it yet —
@@ -76,7 +81,7 @@ export default function App() {
     if (!isRunning) return
     const engine = engineRef.current
     if (!engine) return
-    if (engine.isDone) {
+    if (engine.currentGeneration >= targetGeneration) {
       setIsRunning(false)
       return
     }
@@ -93,7 +98,7 @@ export default function App() {
     return () => {
       if (timerRef.current !== null) window.clearTimeout(timerRef.current)
     }
-  }, [isRunning, result, config.tweenDurationMs])
+  }, [isRunning, result, config.tweenDurationMs, targetGeneration])
 
   const handlePresetChange = (name: PresetName) => {
     setPreset(name)
@@ -104,7 +109,8 @@ export default function App() {
     setConfig(next)
   }
 
-  const handleStart = () => {
+  /** Raises the target generation by `amount` and (re)starts stepping toward it. */
+  const handleAdvance = (amount: number) => {
     const configChanged = !engineRef.current || engineConfigRef.current !== config
     if (configChanged) prepareEngine()
     if (!startedRef.current) {
@@ -114,10 +120,11 @@ export default function App() {
       setResult(first)
       setHistory([{ generation: first.generation, bestScore: first.best.score, averageScore: first.averageScore }])
     }
+    setTargetGeneration((prev) => (configChanged ? 0 : prev) + amount)
     setIsRunning(true)
   }
 
-  const handlePause = () => setIsRunning(false)
+  const handlePauseToggle = () => setIsRunning((prev) => !prev)
 
   const handleReset = () => prepareEngine()
 
@@ -152,6 +159,9 @@ export default function App() {
     setScoreExplanation(null)
   }, [displayedIndividual?.genome.seq])
 
+  const hasStarted = result !== null
+  const isFinished = hasStarted && result!.generation >= targetGeneration
+
   const handleToggleScoreExplainer = () => {
     if (scoreExplanation) {
       setScoreExplanation(null)
@@ -185,8 +195,11 @@ export default function App() {
             onImportFile={handleImportFile}
             importError={importError}
             isRunning={isRunning}
-            onStart={handleStart}
-            onPause={handlePause}
+            hasStarted={hasStarted}
+            isFinished={isFinished}
+            targetGeneration={targetGeneration}
+            onAdvance={handleAdvance}
+            onPauseToggle={handlePauseToggle}
             onReset={handleReset}
           />
         </aside>
@@ -200,7 +213,7 @@ export default function App() {
               <span>
                 Generation{' '}
                 <strong className="font-mono font-semibold text-text-primary">{result?.generation ?? 0}</strong> /{' '}
-                {config.maxGenerations}
+                {targetGeneration}
               </span>
               <span className="relative">
                 {selectedGenomeSeq !== undefined ? 'Selected score' : 'Best score'}{' '}
@@ -230,7 +243,7 @@ export default function App() {
                 />
                 Show inverted normals
               </label>
-              {engineRef.current?.isDone && (
+              {isFinished && (
                 <span className="ml-auto rounded-full bg-[rgba(28,175,122,0.15)] px-2.5 py-[3px] text-[11px] font-semibold tracking-[0.04em] text-[#1baf7a] uppercase">
                   Done
                 </span>

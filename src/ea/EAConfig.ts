@@ -31,8 +31,6 @@ export interface EAConfig {
   readonly mutationProbability: number
   /** Strength of mutation perturbation (0..1), scales the max axis-angle rotation. */
   readonly mutationStrength: number
-  /** Max number of generations to run before stopping automatically. */
-  readonly maxGenerations: number
   /**
    * Which fitness strategy to score orientations with. 'support-aware' is the
    * recommended default: it extends angle-based scoring with two effects angle
@@ -69,7 +67,6 @@ export const EA_PRESETS: Record<PresetName, EAConfig> = {
     tournamentSize: 2,
     mutationProbability: 0.3,
     mutationStrength: 0.5,
-    maxGenerations: 25,
     fitnessStrategy: 'support-aware',
     criticalOverhangAngleDeg: 45,
     tweenDurationMs: 200,
@@ -85,7 +82,6 @@ export const EA_PRESETS: Record<PresetName, EAConfig> = {
     tournamentSize: 3,
     mutationProbability: 0.35,
     mutationStrength: 0.4,
-    maxGenerations: 60,
     fitnessStrategy: 'projected-area',
     criticalOverhangAngleDeg: 45,
     tweenDurationMs: 400,
@@ -101,7 +97,6 @@ export const EA_PRESETS: Record<PresetName, EAConfig> = {
     tournamentSize: 4,
     mutationProbability: 0.4,
     mutationStrength: 0.3,
-    maxGenerations: 150,
     fitnessStrategy: 'projected-area',
     criticalOverhangAngleDeg: 45,
     tweenDurationMs: 500,
