@@ -313,7 +313,12 @@ export function ConfigPanel({
             {
               value: 'projected-area',
               label: 'Projected area',
-              hint: 'Minimizes total downward-facing area with no printer-specific overhang threshold. Printer-agnostic, but ignores how support actually behaves.',
+              hint: 'Minimizes total downward-facing area with no printer-specific overhang threshold, plus a model-on-model occlusion penalty. Printer-agnostic, but the occlusion check adds cost on very high-triangle-count meshes.',
+            },
+            {
+              value: 'simple-area',
+              label: 'Simple area (fast)',
+              hint: 'Same downward-area metric as Projected area, but skips the occlusion penalty entirely — one plain pass over triangles, no auxiliary grid. Fastest option, best for very large imported models.',
             },
             {
               value: 'overhang-angle',

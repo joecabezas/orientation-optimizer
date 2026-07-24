@@ -5,6 +5,7 @@ import { FitnessStrategy } from './strategies/FitnessStrategy'
 import { OverhangFitnessStrategy } from './strategies/OverhangFitnessStrategy'
 import { ProjectedAreaFitnessStrategy } from './strategies/ProjectedAreaFitnessStrategy'
 import { SupportAwareFitnessStrategy } from './strategies/SupportAwareFitnessStrategy'
+import { SimpleAreaFitnessStrategy } from './strategies/SimpleAreaFitnessStrategy'
 import { DirectionalShellSeeding } from './strategies/DirectionalShellSeeding'
 import { TournamentSelection } from './strategies/TournamentSelection'
 import { SlerpCrossover } from './strategies/SlerpCrossover'
@@ -19,6 +20,8 @@ function createFitnessStrategy(config: EAConfig): FitnessStrategy {
       })
     case 'projected-area':
       return new ProjectedAreaFitnessStrategy()
+    case 'simple-area':
+      return new SimpleAreaFitnessStrategy()
     case 'support-aware':
       return new SupportAwareFitnessStrategy({
         criticalOverhangAngleDeg: config.criticalOverhangAngleDeg,

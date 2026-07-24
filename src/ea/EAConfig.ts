@@ -1,4 +1,4 @@
-export type FitnessStrategyName = 'projected-area' | 'overhang-angle' | 'support-aware'
+export type FitnessStrategyName = 'projected-area' | 'overhang-angle' | 'support-aware' | 'simple-area'
 
 export interface EAConfig {
   /** Number of genomes per generation. */
@@ -41,7 +41,11 @@ export interface EAConfig {
    * occasionally change which orientation ranks best (see
    * criticalOverhangAngleDeg). 'projected-area' has no printer-specific
    * threshold, minimizing total downward-facing area regardless of a
-   * printer's overhang tolerance.
+   * printer's overhang tolerance, plus a model-on-model occlusion penalty.
+   * 'simple-area' is the same downward-area metric as 'projected-area' but
+   * without the occlusion penalty's extra grid-construction cost — a plain
+   * single pass over triangles, fastest option for very high triangle counts
+   * (e.g. large imported STLs) where that cost adds up across a population.
    */
   readonly fitnessStrategy: FitnessStrategyName
   /**
